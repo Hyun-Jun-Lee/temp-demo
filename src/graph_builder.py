@@ -1,8 +1,10 @@
 from collections.abc import Sequence
+from typing import Any, Callable
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
+from src.core.run_repository import save_node_status
 from src.core.state import MainState
 from src.nodes.classifier_node import classifier_node
 from src.nodes.global_health_node import global_health_node
@@ -23,12 +25,15 @@ def graph_builder():
 
 
 def register_nodes(graph: StateGraph) -> StateGraph:
-    graph.add_node("classifier", classifier_node)
-    graph.add_node("global_health", global_health_node)
-    graph.add_node("memory", memory_node)
-    graph.add_node("os", os_node)
-    graph.add_node("summary", summary_node)
-    graph.add_node("validation", validation_node)
+    graph.add_node("classifier", _with_node_tracking("classifier", classifier_node))
+    graph.add_node(
+        "global_health",
+        _with_node_tracking("global_health", global_health_node),
+    )
+    graph.add_node("memory", _with_node_tracking("memory", memory_node))
+    graph.add_node("os", _with_node_tracking("os", os_node))
+    graph.add_node("summary", _with_node_tracking("summary", summary_node))
+    graph.add_node("validation", _with_node_tracking("validation", validation_node))
 
     return graph
 
@@ -85,3 +90,34 @@ def _normalize_target_nodes(target_nodes: Sequence[str]) -> list[str]:
             normalized.append(node_name)
 
     return normalized
+
+
+def _with_node_tracking(
+    node_name: str,
+    node_func: Callable[[MainState], dict[str, Any]],
+) -> Callable[[MainState], dict[str, Any]]:
+    def _tracked_node(state: MainState) -> dict[str, Any]:
+        run_id = state.get("run_id")
+
+        if run_id:
+            save_node_status(run_id, node_name, "QUEUED")
+            save_node_status(run_id, node_name, "RUNNING")
+
+        try:
+            result = node_func(state)
+        except Exception as exc:
+            if run_id:
+                save_node_status(
+                    run_id,
+                    node_name,
+                    "FAILED",
+                    {"error": str(exc)},
+                )
+            raise
+
+        if run_id:
+            save_node_status(run_id, node_name, "COMPLETE", result)
+
+        return result
+
+    return _tracked_node

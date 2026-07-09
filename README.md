@@ -34,7 +34,7 @@ START
   - OS/서버 질문: `os`
 - `global_health`: 포괄적인 DB 상태 질문을 받아 `memory`, `os` 중 필요한 세부 진단 노드를 선택합니다.
 - `memory`: Oracle DB 인스턴스의 Shared Pool, parse, cache, reserved pool 관련 메모리 압박을 분석합니다.
-- `os`: OS/서버 상태 진단 노드입니다. 현재는 스텁입니다.
+- `os`: 인스턴스별 OS 리소스 분석 결과를 RAC 레벨로 요약하고, CPU/메모리 압박, swap/paging, PGA 압박, workload skew, node imbalance를 판단합니다.
 - `summary`: 실행된 진단 노드의 `node_result`를 요약해 `summary_result`를 생성합니다.
 - `validation`: `user_question`, `node_result`, `summary_result`를 검증하고 `final_response`를 생성합니다.
 
@@ -68,17 +68,73 @@ uv sync
 환경변수 설정:
 
 ```bash
-export OPENAI_API_KEY="your-api-key"
-export OPENAI_MODEL="gpt-4.1-mini"
+export OPENROUTER_API_KEY="your-api-key"
+export OPENROUTER_MODEL_NAME="openai/gpt-4.1-mini"
 ```
 
-`OPENAI_MODEL`은 선택값입니다. 지정하지 않으면 기본값으로 `gpt-4.1-mini`를 사용합니다.
+`OPENROUTER_API_KEY`, `OPENROUTER_MODEL_NAME`은 필수값입니다.
 
 FastAPI 서버 실행:
 
 ```bash
 uvicorn src.main:app --reload
 ```
+
+## API
+
+### 그래프 실행 요청
+
+```http
+POST /graph/invoke
+```
+
+요청을 받으면 graph 실행은 background task로 처리하고, API는 즉시 `run_id`를 반환합니다.
+
+요청:
+
+```json
+{
+  "user_question": "DB 상태 정상인가요?",
+  "db_name": "TESTDB"
+}
+```
+
+응답:
+
+```json
+{
+  "run_id": "uuid",
+  "run_status": "QUEUED"
+}
+```
+
+### 진행 상태 조회
+
+```http
+GET /graph/runs/{run_id}/status
+```
+
+해당 `run_id`의 노드별 최신 상태를 조회합니다.
+
+### 작업 이력 조회
+
+```http
+GET /graph/runs/{run_id}/tasks
+```
+
+해당 `run_id`의 노드 실행 이벤트 전체를 조회합니다.
+
+노드 실행 상태는 SQLite 테이블 `node_runs`에 저장됩니다.
+
+필드:
+
+- `run_id`
+- `node_name`
+- `node_status`
+- `node_result`
+- `created_at`
+
+기본 DB 파일은 `da_ops_demo.sqlite3`입니다. `DA_OPS_DB_PATH` 환경변수로 경로를 변경할 수 있습니다.
 
 ## 프로젝트 구조
 
@@ -88,6 +144,7 @@ src
 ├── graph_builder.py
 ├── core
 │   ├── llm_client.py
+│   ├── run_repository.py
 │   ├── state.py
 │   └── utils.py
 ├── nodes

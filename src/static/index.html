@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DA Ops Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              opsBlue: {
+                50: "#eff6ff",
+                100: "#dbeafe",
+                500: "#2563eb",
+                600: "#1d4ed8",
+                700: "#1e40af",
+                900: "#172554",
+              },
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="min-h-screen bg-blue-50 text-slate-900">
+    <main class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-6 py-8">
+      <header class="flex flex-col gap-2">
+        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">DA Ops Demo</p>
+        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-blue-950">DB 운영 진단 콘솔</h1>
+            <p class="mt-2 text-sm text-slate-600">
+              DB를 선택하고 질문을 입력하면 LangGraph 노드 실행 상태와 결과를 확인할 수 있습니다.
+            </p>
+          </div>
+          <div id="runBadge" class="hidden rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-blue-700 shadow-sm"></div>
+        </div>
+      </header>
+
+      <nav class="flex gap-2 rounded-lg border border-blue-100 bg-white p-2 shadow-sm">
+        <button id="runTabButton" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+          실행
+        </button>
+        <button id="reportTabButton" class="rounded-md px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+          Report
+        </button>
+      </nav>
+
+      <section id="runView" class="flex flex-col gap-6">
+      <section class="rounded-lg border border-blue-100 bg-white shadow-sm">
+        <div class="border-b border-blue-100 px-5 py-4">
+          <h2 class="text-lg font-semibold text-blue-950">DB 목록</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-blue-100 text-sm">
+            <thead class="bg-blue-50 text-left text-xs font-semibold uppercase text-blue-700">
+              <tr>
+                <th class="w-14 px-5 py-3">선택</th>
+                <th class="px-5 py-3">DB 이름</th>
+                <th class="px-5 py-3">서비스</th>
+                <th class="px-5 py-3">역할</th>
+                <th class="px-5 py-3">상태</th>
+              </tr>
+            </thead>
+            <tbody id="dbTableBody" class="divide-y divide-blue-50 bg-white"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+        <label for="questionInput" class="text-sm font-semibold text-blue-950">질문</label>
+        <div class="mt-3 flex flex-col gap-3 md:flex-row">
+          <textarea
+            id="questionInput"
+            rows="3"
+            class="min-h-24 flex-1 resize-none rounded-md border border-blue-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            placeholder="예: DB 상태 정상인가요?"
+          ></textarea>
+          <button
+            id="askButton"
+            class="inline-flex h-12 items-center justify-center rounded-md bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+          >
+            질문하기
+          </button>
+        </div>
+        <p id="formMessage" class="mt-3 hidden text-sm"></p>
+      </section>
+
+      <section class="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-blue-950">노드 진행상황</h2>
+            <div class="flex gap-2">
+              <button id="reportShortcutButton" class="hidden rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                Report 바로가기
+              </button>
+              <button id="refreshButton" class="hidden rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">
+                새로고침
+              </button>
+            </div>
+          </div>
+          <div id="nodeGrid" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+              아직 실행된 작업이 없습니다.
+            </div>
+          </div>
+        </div>
+
+        <aside class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+          <div class="mb-4">
+            <h2 class="text-lg font-semibold text-blue-950">노드 결과</h2>
+            <p class="mt-1 text-sm text-slate-500">진행상황 박스를 클릭하면 결과가 표시됩니다.</p>
+          </div>
+          <div id="resultPanel" class="min-h-80 rounded-md border border-blue-100 bg-blue-50 p-4 text-sm text-slate-600">
+            선택된 노드가 없습니다.
+          </div>
+        </aside>
+      </section>
+      </section>
+
+      <section id="reportView" class="hidden grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]" style="display: none">
+        <aside class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-blue-950">Report 목록</h2>
+            <button id="reportRefreshButton" class="rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">
+              새로고침
+            </button>
+          </div>
+          <div id="reportList" class="space-y-2">
+            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+              저장된 Report가 없습니다.
+            </div>
+          </div>
+        </aside>
+
+        <article class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+          <div class="mb-4">
+            <h2 class="text-lg font-semibold text-blue-950">Report 상세</h2>
+            <p class="mt-1 text-sm text-slate-500">run_id를 선택하면 최종 결과를 확인할 수 있습니다.</p>
+          </div>
+          <div id="reportPanel" class="min-h-96 rounded-md border border-blue-100 bg-blue-50 p-5 text-sm text-slate-600">
+            선택된 Report가 없습니다.
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const dbTableBody = document.getElementById("dbTableBody");
+      const questionInput = document.getElementById("questionInput");
+      const askButton = document.getElementById("askButton");
+      const formMessage = document.getElementById("formMessage");
+      const nodeGrid = document.getElementById("nodeGrid");
+      const resultPanel = document.getElementById("resultPanel");
+      const runBadge = document.getElementById("runBadge");
+      const refreshButton = document.getElementById("refreshButton");
+      const reportShortcutButton = document.getElementById("reportShortcutButton");
+      const runTabButton = document.getElementById("runTabButton");
+      const reportTabButton = document.getElementById("reportTabButton");
+      const runView = document.getElementById("runView");
+      const reportView = document.getElementById("reportView");
+      const reportRefreshButton = document.getElementById("reportRefreshButton");
+      const reportList = document.getElementById("reportList");
+      const reportPanel = document.getElementById("reportPanel");
+
+      let selectedDbName = "";
+      let currentRunId = "";
+      let pollTimer = null;
+      let selectedNodeName = "";
+      let latestStatuses = [];
+      let latestReports = [];
+      let selectedReportRunId = "";
+
+      const statusClasses = {
+        QUEUED: "border-slate-200 bg-slate-50 text-slate-700",
+        RUNNING: "border-blue-200 bg-blue-50 text-blue-700",
+        COMPLETE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        FAILED: "border-red-200 bg-red-50 text-red-700",
+      };
+
+      function displayStatus(status) {
+        return status;
+      }
+
+      function showMessage(message, type = "info") {
+        formMessage.textContent = message;
+        formMessage.className = `mt-3 text-sm ${type === "error" ? "text-red-600" : "text-blue-700"}`;
+        formMessage.classList.remove("hidden");
+      }
+
+      async function loadDatabases() {
+        const response = await fetch("/api/databases");
+        const databases = await response.json();
+
+        dbTableBody.innerHTML = databases
+          .map(
+            (db, index) => `
+              <tr class="hover:bg-blue-50">
+                <td class="px-5 py-4">
+                  <input
+                    type="checkbox"
+                    class="db-checkbox h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                    data-db-name="${db.db_name}"
+                    ${index === 0 ? "checked" : ""}
+                  />
+                </td>
+                <td class="px-5 py-4 font-semibold text-blue-950">${db.db_name}</td>
+                <td class="px-5 py-4 text-slate-600">${db.service_name}</td>
+                <td class="px-5 py-4 text-slate-600">${db.role}</td>
+                <td class="px-5 py-4">
+                  <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">${db.status}</span>
+                </td>
+              </tr>
+            `
+          )
+          .join("");
+
+        selectedDbName = databases[0]?.db_name || "";
+        document.querySelectorAll(".db-checkbox").forEach((checkbox) => {
+          checkbox.addEventListener("change", (event) => {
+            document.querySelectorAll(".db-checkbox").forEach((item) => {
+              if (item !== event.target) item.checked = false;
+            });
+
+            event.target.checked = true;
+            selectedDbName = event.target.dataset.dbName;
+          });
+        });
+      }
+
+      async function invokeGraph() {
+        const userQuestion = questionInput.value.trim();
+
+        if (!selectedDbName) {
+          showMessage("DB를 선택해주세요.", "error");
+          return;
+        }
+
+        if (!userQuestion) {
+          showMessage("질문을 입력해주세요.", "error");
+          return;
+        }
+
+        askButton.disabled = true;
+        reportShortcutButton.classList.add("hidden");
+        selectedNodeName = "";
+        latestStatuses = [];
+        renderNodeGrid();
+        renderResultPanel(null);
+        showMessage("작업을 등록하는 중입니다.");
+
+        const response = await fetch("/graph/invoke", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_question: userQuestion,
+            db_name: selectedDbName,
+          }),
+        });
+
+        if (!response.ok) {
+          askButton.disabled = false;
+          showMessage("작업 등록에 실패했습니다.", "error");
+          return;
+        }
+
+        const payload = await response.json();
+        currentRunId = payload.run_id;
+        latestStatuses = [];
+        runBadge.textContent = `run_id: ${currentRunId}`;
+        runBadge.classList.remove("hidden");
+        refreshButton.classList.remove("hidden");
+        renderNodeGrid();
+        showMessage("작업이 등록되었습니다. 진행상황을 조회합니다.");
+        startPolling();
+      }
+
+      async function fetchStatus() {
+        if (!currentRunId) return;
+
+        const response = await fetch(`/graph/runs/${currentRunId}/status`);
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        latestStatuses = payload.node_statuses;
+        renderNodeGrid();
+
+        if (selectedNodeName) {
+          renderResultPanel(latestStatuses.find((item) => item.node_name === selectedNodeName));
+        }
+
+        const graphStatus = latestStatuses.find((item) => item.node_name === "graph")?.node_status;
+        if (graphStatus === "COMPLETE" || graphStatus === "FAILED") {
+          stopPolling();
+          askButton.disabled = false;
+          if (graphStatus === "COMPLETE") {
+            reportShortcutButton.classList.remove("hidden");
+            loadReports(currentRunId);
+          }
+          showMessage(graphStatus === "COMPLETE" ? "작업이 완료되었습니다." : "작업이 실패했습니다.", graphStatus === "FAILED" ? "error" : "info");
+        }
+      }
+
+      function startPolling() {
+        stopPolling();
+        fetchStatus();
+        pollTimer = window.setInterval(fetchStatus, 1500);
+      }
+
+      function stopPolling() {
+        if (pollTimer) {
+          window.clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      function renderNodeGrid() {
+        const runActive = isRunActive();
+
+        if (!latestStatuses.length && !runActive) {
+          nodeGrid.innerHTML = `
+            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+              아직 실행된 작업이 없습니다.
+            </div>
+          `;
+          return;
+        }
+
+        const visibleStatuses = latestStatuses.filter((item) => item.node_name !== "graph");
+        const nodeCards = visibleStatuses
+          .map((item) => {
+            const active = item.node_name === selectedNodeName;
+            const statusClass = statusClasses[item.node_status] || "border-slate-200 bg-slate-50 text-slate-700";
+            return `
+              <button
+                class="node-card rounded-md border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${statusClass} ${active ? "ring-2 ring-blue-400" : ""}"
+                data-node-name="${item.node_name}"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <span class="font-semibold">${item.node_name}</span>
+                  <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold">${displayStatus(item.node_status)}</span>
+                </div>
+                <p class="mt-3 text-xs opacity-75">${item.created_at}</p>
+              </button>
+            `;
+          })
+          .join("");
+
+        const loadingCard = runActive
+          ? `
+            <div class="rounded-md border border-dashed border-blue-300 bg-white p-4 text-blue-700 shadow-sm">
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-semibold">다음 노드 대기중</span>
+                <span class="flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold">
+                  <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-600"></span>
+                  LOADING
+                </span>
+              </div>
+              <div class="mt-4 space-y-2">
+                <div class="h-2 w-full animate-pulse rounded-full bg-blue-100"></div>
+                <div class="h-2 w-2/3 animate-pulse rounded-full bg-blue-100"></div>
+              </div>
+              <p class="mt-3 text-xs text-blue-500">DB 상태 저장소에서 다음 노드 상태를 확인하고 있습니다.</p>
+            </div>
+          `
+          : "";
+
+        nodeGrid.innerHTML = nodeCards + loadingCard;
+
+        document.querySelectorAll(".node-card").forEach((card) => {
+          card.addEventListener("click", () => {
+            selectedNodeName = card.dataset.nodeName;
+            const selected = visibleStatuses.find((item) => item.node_name === selectedNodeName);
+            renderNodeGrid();
+            renderResultPanel(selected);
+          });
+        });
+      }
+
+      function isRunActive() {
+        if (!currentRunId) return false;
+
+        const graphStatus = latestStatuses.find((item) => item.node_name === "graph")?.node_status;
+        if (!graphStatus) return true;
+
+        return graphStatus !== "COMPLETE" && graphStatus !== "FAILED";
+      }
+
+      function renderResultPanel(item) {
+        if (!item) {
+          resultPanel.innerHTML = "선택된 노드가 없습니다.";
+          return;
+        }
+
+        resultPanel.innerHTML = `
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <h3 class="font-semibold text-blue-950">${item.node_name}</h3>
+            <span class="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-blue-700">${displayStatus(item.node_status)}</span>
+          </div>
+          <pre class="max-h-[520px] overflow-auto rounded-md bg-white p-4 text-xs leading-relaxed text-slate-800">${escapeHtml(JSON.stringify(item.node_result, null, 2))}</pre>
+        `;
+      }
+
+      function switchTab(tabName) {
+        const reportActive = tabName === "report";
+
+        runView.classList.toggle("hidden", reportActive);
+        reportView.classList.toggle("hidden", !reportActive);
+        runView.style.display = reportActive ? "none" : "";
+        reportView.style.display = reportActive ? "" : "none";
+        runTabButton.className = reportActive
+          ? "rounded-md px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+          : "rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white";
+        reportTabButton.className = reportActive
+          ? "rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+          : "rounded-md px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50";
+
+        if (reportActive) {
+          loadReports(selectedReportRunId || currentRunId);
+        }
+      }
+
+      async function loadReports(preferredRunId = "") {
+        const response = await fetch("/reports");
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        latestReports = payload.reports;
+
+        if (preferredRunId) {
+          selectedReportRunId = preferredRunId;
+        } else if (!selectedReportRunId && latestReports.length) {
+          selectedReportRunId = latestReports[0].run_id;
+        }
+
+        renderReportList();
+
+        if (selectedReportRunId) {
+          loadReport(selectedReportRunId);
+        }
+      }
+
+      async function loadReport(runId) {
+        const response = await fetch(`/reports/${runId}`);
+        if (!response.ok) {
+          reportPanel.innerHTML = "Report를 불러오지 못했습니다.";
+          return;
+        }
+
+        const report = await response.json();
+        selectedReportRunId = report.run_id;
+        renderReportList();
+        renderReportPanel(report);
+      }
+
+      function renderReportList() {
+        if (!latestReports.length) {
+          reportList.innerHTML = `
+            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+              저장된 Report가 없습니다.
+            </div>
+          `;
+          return;
+        }
+
+        reportList.innerHTML = latestReports
+          .map((report) => {
+            const selected = report.run_id === selectedReportRunId;
+            const result = report.report_result || {};
+            return `
+              <button
+                class="report-item w-full rounded-md border p-3 text-left text-sm transition hover:bg-blue-50 ${selected ? "border-blue-400 bg-blue-50 ring-2 ring-blue-100" : "border-blue-100 bg-white"}"
+                data-run-id="${report.run_id}"
+              >
+                <div class="font-semibold text-blue-950">${result.db_name || "UNKNOWN_DB"}</div>
+                <div class="mt-1 truncate text-xs text-slate-500">${report.run_id}</div>
+                <div class="mt-2 text-xs text-blue-700">${report.created_at}</div>
+              </button>
+            `;
+          })
+          .join("");
+
+        document.querySelectorAll(".report-item").forEach((item) => {
+          item.addEventListener("click", () => loadReport(item.dataset.runId));
+        });
+      }
+
+      function renderReportPanel(report) {
+        const result = report.report_result || {};
+        const nodeResults = result.node_result || [];
+        const summaryResult = findNodeResult(nodeResults, "summary");
+        const memoryResult = findNodeResult(nodeResults, "memory");
+        const osResult = findNodeResult(nodeResults, "os");
+        const globalHealthResult = findNodeResult(nodeResults, "global_health");
+        const overallScore = summaryResult?.overall_score ?? "-";
+        const overallStatus = summaryResult?.overall_status ?? result.validation_result ?? "-";
+
+        reportPanel.innerHTML = `
+          <div class="space-y-4">
+            <div class="rounded-md bg-white p-4">
+              <div class="text-xs font-semibold uppercase text-blue-600">run_id</div>
+              <div class="mt-1 break-all text-sm font-medium text-blue-950">${report.run_id}</div>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="rounded-md bg-white p-4">
+                <div class="text-xs font-semibold uppercase text-blue-600">DB</div>
+                <div class="mt-1 text-sm font-medium text-blue-950">${result.db_name || "-"}</div>
+              </div>
+              <div class="rounded-md bg-white p-4">
+                <div class="text-xs font-semibold uppercase text-blue-600">Overall Status</div>
+                <div class="mt-1 text-sm font-medium text-blue-950">${overallStatus}</div>
+              </div>
+            </div>
+            <div class="grid gap-3 md:grid-cols-4">
+              ${metricCard("Overall Risk", overallScore, "/ 100")}
+              ${metricCard("Global Health", globalHealthResult?.overall_health_score ?? "-", "/ 100")}
+              ${metricCard("Memory Severity", memoryResult?.severity_score ?? "-", "/ 100")}
+              ${metricCard("OS Severity", osResult?.severity_score ?? "-", "/ 100")}
+            </div>
+            <div class="grid gap-3 md:grid-cols-3">
+              ${metricCard("OS CPU Pressure", osResult?.cpu_pressure_score ?? "-", "/ 100")}
+              ${metricCard("OS Memory Pressure", osResult?.memory_pressure_score ?? "-", "/ 100")}
+              ${metricCard("Imbalance", osResult?.imbalance_score ?? "-", "/ 100")}
+            </div>
+            <div class="grid gap-3 lg:grid-cols-2">
+              ${renderFindingCard("핵심 발견", summaryResult?.key_findings || [])}
+              ${renderFindingCard("권고사항", summaryResult?.recommended_actions || [])}
+            </div>
+            ${renderMetricsTable("Memory 주요 지표", memoryResult?.key_metrics || {})}
+            ${renderMetricsTable("OS Cluster 지표", osResult?.cluster_metrics || {})}
+            <div class="rounded-md bg-white p-4">
+              <div class="text-xs font-semibold uppercase text-blue-600">질문</div>
+              <div class="mt-1 text-sm text-slate-800">${escapeHtml(result.user_question || "-")}</div>
+            </div>
+            <div class="rounded-md bg-white p-4">
+              <div class="text-xs font-semibold uppercase text-blue-600">최종 결과</div>
+              <div class="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">${escapeHtml(result.final_response || "-")}</div>
+            </div>
+            <details class="rounded-md bg-white p-4">
+              <summary class="cursor-pointer text-sm font-semibold text-blue-700">원본 Report JSON</summary>
+              <pre class="mt-3 max-h-[420px] overflow-auto rounded-md bg-blue-50 p-4 text-xs leading-relaxed text-slate-800">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
+            </details>
+          </div>
+        `;
+      }
+
+      function findNodeResult(nodeResults, nodeName) {
+        return nodeResults.find((item) => item.node === nodeName)?.result || null;
+      }
+
+      function metricCard(label, value, suffix = "") {
+        return `
+          <div class="rounded-md bg-white p-4">
+            <div class="text-xs font-semibold uppercase text-blue-600">${label}</div>
+            <div class="mt-2 flex items-end gap-1">
+              <span class="text-2xl font-bold text-blue-950">${escapeHtml(String(value))}</span>
+              <span class="pb-1 text-xs font-semibold text-slate-500">${suffix}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderFindingCard(title, items) {
+        const content = items.length
+          ? `<ul class="mt-3 space-y-2">${items.map((item) => `<li class="rounded-md bg-blue-50 px-3 py-2 text-sm text-slate-800">${escapeHtml(item)}</li>`).join("")}</ul>`
+          : `<div class="mt-3 rounded-md bg-blue-50 px-3 py-2 text-sm text-slate-500">표시할 항목이 없습니다.</div>`;
+
+        return `
+          <div class="rounded-md bg-white p-4">
+            <div class="text-xs font-semibold uppercase text-blue-600">${title}</div>
+            ${content}
+          </div>
+        `;
+      }
+
+      function renderMetricsTable(title, metrics) {
+        const entries = Object.entries(metrics);
+
+        if (!entries.length) {
+          return "";
+        }
+
+        return `
+          <div class="rounded-md bg-white p-4">
+            <div class="text-xs font-semibold uppercase text-blue-600">${title}</div>
+            <div class="mt-3 overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <tbody class="divide-y divide-blue-50">
+                  ${entries.map(([key, value]) => `
+                    <tr>
+                      <td class="py-2 pr-4 font-medium text-slate-600">${escapeHtml(key)}</td>
+                      <td class="py-2 text-right font-semibold text-blue-950">${escapeHtml(String(value))}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      askButton.addEventListener("click", invokeGraph);
+      refreshButton.addEventListener("click", fetchStatus);
+      reportShortcutButton.addEventListener("click", () => {
+        selectedReportRunId = currentRunId;
+        switchTab("report");
+      });
+      runTabButton.addEventListener("click", () => switchTab("run"));
+      reportTabButton.addEventListener("click", () => switchTab("report"));
+      reportRefreshButton.addEventListener("click", () => loadReports(selectedReportRunId));
+      loadDatabases().catch(() => showMessage("DB 목록을 불러오지 못했습니다.", "error"));
+      loadReports();
+    </script>
+  </body>
+</html>

@@ -6,6 +6,7 @@ class MainState(TypedDict):
     db_name: str
     user_question: str
 
+    run_id: NotRequired[str]
     node_result: NotRequired[Annotated[list, add]]
     target_nodes: NotRequired[list[str]]
     summary_result: NotRequired[str]

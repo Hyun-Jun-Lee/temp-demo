@@ -4,6 +4,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
+from src.core.demo_scenarios import select_demo_scenario
 from src.core.llm_client import get_llm_client
 from src.core.state import MainState
 from src.prompt.memory_prompt import SYSTEM_PROMPT, USER_PROMPT
@@ -34,6 +35,25 @@ class MemoryAnalysisResult(BaseModel):
     )
     trend: MemoryTrend = Field(
         description="Overall memory-related trend classification.",
+    )
+    severity_score: int = Field(
+        ge=0,
+        le=100,
+        description="Memory pressure severity score from 0 to 100.",
+    )
+    confidence_score: int = Field(
+        ge=0,
+        le=100,
+        description="Confidence score for this memory analysis.",
+    )
+    key_metrics: dict[str, float] = Field(
+        description="Report-ready numeric memory metrics such as request_failures, request_misses, hard_parse_per_sec, soft_parse_ratio, library_cache_hit_ratio, row_cache_hit_ratio, shared_pool_free_pct, and shared_pool_free_mb.",
+    )
+    risk_factors: list[str] = Field(
+        description="Korean list of memory risk factors. Empty if none are found.",
+    )
+    normal_factors: list[str] = Field(
+        description="Korean list of healthy memory signals.",
     )
     allocation_failure_risk: str = Field(
         description="Korean assessment of REQUEST_FAILURES and ORA-04031 risk.",
@@ -66,9 +86,10 @@ class MemoryAnalysisResult(BaseModel):
 
 def memory_node(state: MainState) -> dict:
     db_name = state["db_name"]
-    sysmetric_data = fetch_sysmetric_data(db_name)
-    shared_pool_free_size_trend = fetch_shared_pool_free_size_trend(db_name)
-    shared_pool_reserved_area_trend = fetch_shared_pool_reserved_area_trend(db_name)
+    run_id = state.get("run_id")
+    sysmetric_data = fetch_sysmetric_data(db_name, run_id)
+    shared_pool_free_size_trend = fetch_shared_pool_free_size_trend(db_name, run_id)
+    shared_pool_reserved_area_trend = fetch_shared_pool_reserved_area_trend(db_name, run_id)
 
     client = get_llm_client().with_structured_output(MemoryAnalysisResult)
     analysis = client.invoke(
@@ -97,7 +118,7 @@ def memory_node(state: MainState) -> dict:
     }
 
 
-def fetch_sysmetric_data(db_name: str) -> list[dict]:
+def fetch_sysmetric_data(db_name: str, run_id: str | None = None) -> list[dict]:
     """Fetch Oracle Sysmetric data for the last 30 minutes at 1-minute granularity.
 
     Required data inferred from the prompt:
@@ -111,10 +132,141 @@ def fetch_sysmetric_data(db_name: str) -> list[dict]:
       2114 Shared Pool Free %
     - Optional baseline fields if available for trend/anomaly comparison
     """
-    return []
+    if select_demo_scenario(db_name, run_id) in {"memory_warning", "mixed_warning"}:
+        return [
+            {
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "INST_ID": 1,
+                "METRIC_ID": 2044,
+                "METRIC_NAME": "Total Parse Count Per Sec",
+                "VALUE": 130.5,
+            },
+            {
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "INST_ID": 1,
+                "METRIC_ID": 2046,
+                "METRIC_NAME": "Hard Parse Count Per Sec",
+                "VALUE": 18.4,
+            },
+            {
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "INST_ID": 1,
+                "METRIC_ID": 2055,
+                "METRIC_NAME": "Soft Parse Ratio",
+                "VALUE": 88.2,
+            },
+            {
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "INST_ID": 1,
+                "METRIC_ID": 2110,
+                "METRIC_NAME": "Row Cache Hit Ratio",
+                "VALUE": 94.1,
+            },
+            {
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "INST_ID": 1,
+                "METRIC_ID": 2112,
+                "METRIC_NAME": "Library Cache Hit Ratio",
+                "VALUE": 91.8,
+            },
+            {
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "INST_ID": 1,
+                "METRIC_ID": 2114,
+                "METRIC_NAME": "Shared Pool Free %",
+                "VALUE": 0.9,
+            },
+        ]
+
+    return [
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 1,
+            "METRIC_ID": 2044,
+            "METRIC_NAME": "Total Parse Count Per Sec",
+            "VALUE": 42.1,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 1,
+            "METRIC_ID": 2046,
+            "METRIC_NAME": "Hard Parse Count Per Sec",
+            "VALUE": 0.8,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 1,
+            "METRIC_ID": 2055,
+            "METRIC_NAME": "Soft Parse Ratio",
+            "VALUE": 98.7,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 1,
+            "METRIC_ID": 2110,
+            "METRIC_NAME": "Row Cache Hit Ratio",
+            "VALUE": 99.2,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 1,
+            "METRIC_ID": 2112,
+            "METRIC_NAME": "Library Cache Hit Ratio",
+            "VALUE": 99.5,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 1,
+            "METRIC_ID": 2114,
+            "METRIC_NAME": "Shared Pool Free %",
+            "VALUE": 3.4,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 2,
+            "METRIC_ID": 2044,
+            "METRIC_NAME": "Total Parse Count Per Sec",
+            "VALUE": 39.6,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 2,
+            "METRIC_ID": 2046,
+            "METRIC_NAME": "Hard Parse Count Per Sec",
+            "VALUE": 0.6,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 2,
+            "METRIC_ID": 2055,
+            "METRIC_NAME": "Soft Parse Ratio",
+            "VALUE": 99.0,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 2,
+            "METRIC_ID": 2110,
+            "METRIC_NAME": "Row Cache Hit Ratio",
+            "VALUE": 99.4,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 2,
+            "METRIC_ID": 2112,
+            "METRIC_NAME": "Library Cache Hit Ratio",
+            "VALUE": 99.6,
+        },
+        {
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "INST_ID": 2,
+            "METRIC_ID": 2114,
+            "METRIC_NAME": "Shared Pool Free %",
+            "VALUE": 4.1,
+        },
+    ]
 
 
-def fetch_shared_pool_free_size_trend(db_name: str) -> list[dict]:
+def fetch_shared_pool_free_size_trend(db_name: str, run_id: str | None = None) -> list[dict]:
     """Fetch Shared Pool Free Size trend for the last 30 minutes.
 
     Required data inferred from the prompt:
@@ -124,10 +276,57 @@ def fetch_shared_pool_free_size_trend(db_name: str) -> list[dict]:
     - NAME, expected value such as "shared pool Free Size"
     - MEGA_BYTES, representing absolute Shared Pool free size in MB
     """
-    return []
+    if select_demo_scenario(db_name, run_id) in {"memory_warning", "mixed_warning"}:
+        return [
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T09:30:00+09:00",
+                "NAME": "shared pool Free Size",
+                "MEGA_BYTES": 420,
+            },
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "NAME": "shared pool Free Size",
+                "MEGA_BYTES": 96,
+            },
+        ]
+
+    return [
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T09:30:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 512,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 506,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 2,
+            "EVENT_TIME": "2026-07-08T09:30:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 488,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 2,
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 492,
+        },
+    ]
 
 
-def fetch_shared_pool_reserved_area_trend(db_name: str) -> list[dict]:
+def fetch_shared_pool_reserved_area_trend(db_name: str, run_id: str | None = None) -> list[dict]:
     """Fetch V$SHARED_POOL_RESERVED trend for the last 30 minutes.
 
     Required data inferred from the prompt:
@@ -144,7 +343,54 @@ def fetch_shared_pool_reserved_area_trend(db_name: str) -> list[dict]:
     - LAST_MISS_SIZE
     - REQUEST_FAILURES
     """
-    return []
+    if select_demo_scenario(db_name, run_id) in {"memory_warning", "mixed_warning"}:
+        return [
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+                "FREE_SPACE_MB": 72,
+                "FREE_COUNT": 88,
+                "MAX_FREE_SIZE_MB": 4,
+                "USED_SPACE_MB": 154,
+                "USED_COUNT": 44,
+                "REQUESTS": 2680,
+                "REQUEST_MISSES": 6,
+                "LAST_MISS_SIZE": 4194304,
+                "REQUEST_FAILURES": 0,
+            }
+        ]
+
+    return [
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "FREE_SPACE_MB": 128,
+            "FREE_COUNT": 42,
+            "MAX_FREE_SIZE_MB": 36,
+            "USED_SPACE_MB": 64,
+            "USED_COUNT": 18,
+            "REQUESTS": 1280,
+            "REQUEST_MISSES": 0,
+            "LAST_MISS_SIZE": 0,
+            "REQUEST_FAILURES": 0,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 2,
+            "EVENT_TIME": "2026-07-08T10:00:00+09:00",
+            "FREE_SPACE_MB": 136,
+            "FREE_COUNT": 45,
+            "MAX_FREE_SIZE_MB": 40,
+            "USED_SPACE_MB": 58,
+            "USED_COUNT": 16,
+            "REQUESTS": 1195,
+            "REQUEST_MISSES": 0,
+            "LAST_MISS_SIZE": 0,
+            "REQUEST_FAILURES": 0,
+        },
+    ]
 
 
 def _to_json(value: object) -> str:
