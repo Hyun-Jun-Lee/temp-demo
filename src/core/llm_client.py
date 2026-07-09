@@ -7,20 +7,30 @@ from langchain_openai import ChatOpenAI
 def get_llm_client() -> ChatOpenAI:
     _load_env_file()
 
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    model_name = os.getenv("OPENROUTER_MODEL_NAME")
+    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+    openrouter_model_name = os.getenv("OPENROUTER_MODEL_NAME")
 
-    if not api_key:
-        raise ValueError("OPENROUTER_API_KEY environment variable is required.")
+    if openrouter_api_key and openrouter_model_name:
+        return ChatOpenAI(
+            api_key=openrouter_api_key,
+            base_url="https://openrouter.ai/api/v1",
+            model=openrouter_model_name,
+            temperature=0,
+        )
 
-    if not model_name:
-        raise ValueError("OPENROUTER_MODEL_NAME environment variable is required.")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 
-    return ChatOpenAI(
-        api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        model=model_name,
-        temperature=0,
+    if openai_api_key:
+        return ChatOpenAI(
+            api_key=openai_api_key,
+            model=openai_model,
+            temperature=0,
+        )
+
+    raise ValueError(
+        "LLM API key is required. Set OPENROUTER_API_KEY and "
+        "OPENROUTER_MODEL_NAME, or set OPENAI_API_KEY."
     )
 
 
