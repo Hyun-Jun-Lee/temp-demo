@@ -35,6 +35,18 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 def save_node_status(
@@ -160,6 +172,63 @@ def list_reports() -> list[dict[str, Any]]:
     return [_report_row_to_dict(row) for row in rows]
 
 
+def save_report_chat_message(
+    run_id: str,
+    role: str,
+    content: str,
+    metadata: Any | None = None,
+) -> dict[str, Any]:
+    init_db()
+
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO report_chat_messages (
+                run_id,
+                role,
+                content,
+                metadata_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                role,
+                content,
+                _dump_json(metadata) if metadata is not None else None,
+                _now(),
+            ),
+        )
+        row = conn.execute(
+            """
+            SELECT id, run_id, role, content, metadata_json, created_at
+            FROM report_chat_messages
+            WHERE id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+
+    return _chat_message_row_to_dict(row)
+
+
+def get_report_chat_messages(run_id: str) -> list[dict[str, Any]]:
+    init_db()
+
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, run_id, role, content, metadata_json, created_at
+            FROM report_chat_messages
+            WHERE run_id = ?
+            ORDER BY id ASC
+            """,
+            (run_id,),
+        ).fetchall()
+
+    return [_chat_message_row_to_dict(row) for row in rows]
+
+
 def _connect() -> sqlite3.Connection:
     db_path = get_db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,6 +252,17 @@ def _report_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "run_id": row["run_id"],
         "report_result": _load_json(row["report_result"]),
+        "created_at": row["created_at"],
+    }
+
+
+def _chat_message_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "run_id": row["run_id"],
+        "role": row["role"],
+        "content": row["content"],
+        "metadata": _load_json(row["metadata_json"]),
         "created_at": row["created_at"],
     }
 
