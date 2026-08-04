@@ -49,6 +49,14 @@ class MemoryAnalysisResult(BaseModel):
     key_metrics: dict[str, float] = Field(
         description="Report-ready numeric memory metrics such as request_failures, request_misses, hard_parse_per_sec, soft_parse_ratio, library_cache_hit_ratio, row_cache_hit_ratio, shared_pool_free_pct, and shared_pool_free_mb.",
     )
+    metric_timeseries: dict[str, list[dict[str, float | str]]] = Field(
+        default_factory=dict,
+        description="Report chart-ready memory time series. Keys should include shared_pool_free_mb, hard_parse_per_sec, and soft_parse_ratio when available.",
+    )
+    memory_breakdown: dict[str, float] = Field(
+        default_factory=dict,
+        description="Report chart-ready memory composition values such as used_mb, free_mb, and reserved_used_mb.",
+    )
     risk_factors: list[str] = Field(
         description="Korean list of memory risk factors. Empty if none are found.",
     )
@@ -108,11 +116,21 @@ def memory_node(state: MainState) -> dict:
         ]
     )
 
+    result = analysis.model_dump()
+    result["metric_timeseries"] = _build_metric_timeseries(
+        sysmetric_data,
+        shared_pool_free_size_trend,
+    )
+    result["memory_breakdown"] = _build_memory_breakdown(
+        shared_pool_free_size_trend,
+        shared_pool_reserved_area_trend,
+    )
+
     return {
         "node_result": [
             {
                 "node": "memory",
-                "result": analysis.model_dump()
+                "result": result,
             }
         ],
     }
@@ -281,9 +299,37 @@ def fetch_shared_pool_free_size_trend(db_name: str, run_id: str | None = None) -
             {
                 "DB_NAME": db_name,
                 "INST_ID": 1,
-                "EVENT_TIME": "2026-07-08T09:30:00+09:00",
+                "EVENT_TIME": "2026-07-08T09:35:00+09:00",
                 "NAME": "shared pool Free Size",
                 "MEGA_BYTES": 420,
+            },
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T09:40:00+09:00",
+                "NAME": "shared pool Free Size",
+                "MEGA_BYTES": 312,
+            },
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T09:45:00+09:00",
+                "NAME": "shared pool Free Size",
+                "MEGA_BYTES": 238,
+            },
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T09:50:00+09:00",
+                "NAME": "shared pool Free Size",
+                "MEGA_BYTES": 164,
+            },
+            {
+                "DB_NAME": db_name,
+                "INST_ID": 1,
+                "EVENT_TIME": "2026-07-08T09:55:00+09:00",
+                "NAME": "shared pool Free Size",
+                "MEGA_BYTES": 118,
             },
             {
                 "DB_NAME": db_name,
@@ -298,9 +344,37 @@ def fetch_shared_pool_free_size_trend(db_name: str, run_id: str | None = None) -
         {
             "DB_NAME": db_name,
             "INST_ID": 1,
-            "EVENT_TIME": "2026-07-08T09:30:00+09:00",
+            "EVENT_TIME": "2026-07-08T09:35:00+09:00",
             "NAME": "shared pool Free Size",
             "MEGA_BYTES": 512,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T09:40:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 508,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T09:45:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 511,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T09:50:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 504,
+        },
+        {
+            "DB_NAME": db_name,
+            "INST_ID": 1,
+            "EVENT_TIME": "2026-07-08T09:55:00+09:00",
+            "NAME": "shared pool Free Size",
+            "MEGA_BYTES": 509,
         },
         {
             "DB_NAME": db_name,
@@ -395,3 +469,60 @@ def fetch_shared_pool_reserved_area_trend(db_name: str, run_id: str | None = Non
 
 def _to_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def _build_metric_timeseries(
+    sysmetric_data: list[dict],
+    shared_pool_free_size_trend: list[dict],
+) -> dict[str, list[dict[str, float | str]]]:
+    """Build chart-ready memory time series from the demo source rows."""
+    return {
+        "shared_pool_free_mb": [
+            {
+                "time": str(row["EVENT_TIME"])[11:16],
+                "value": float(row["MEGA_BYTES"]),
+            }
+            for row in shared_pool_free_size_trend
+            if row.get("INST_ID") == 1
+        ],
+        "hard_parse_per_sec": _metric_points(sysmetric_data, "Hard Parse Count Per Sec"),
+        "soft_parse_ratio": _metric_points(sysmetric_data, "Soft Parse Ratio"),
+    }
+
+
+def _metric_points(rows: list[dict], metric_name: str) -> list[dict[str, float | str]]:
+    return [
+        {
+            "time": str(row["EVENT_TIME"])[11:16],
+            "value": float(row["VALUE"]),
+        }
+        for row in rows
+        if row.get("INST_ID") == 1 and row.get("METRIC_NAME") == metric_name
+    ]
+
+
+def _build_memory_breakdown(
+    shared_pool_free_size_trend: list[dict],
+    shared_pool_reserved_area_trend: list[dict],
+) -> dict[str, float]:
+    latest_free = _latest_number(shared_pool_free_size_trend, "MEGA_BYTES")
+    latest_reserved_used = _latest_number(shared_pool_reserved_area_trend, "USED_SPACE_MB")
+
+    if latest_free is None and latest_reserved_used is None:
+        return {}
+
+    free_mb = latest_free or 0.0
+    reserved_used_mb = latest_reserved_used or 0.0
+    estimated_total_mb = max(1024.0, free_mb + reserved_used_mb + 512.0)
+    used_mb = max(estimated_total_mb - free_mb - reserved_used_mb, 0.0)
+
+    return {
+        "used_mb": round(used_mb, 2),
+        "free_mb": round(free_mb, 2),
+        "reserved_used_mb": round(reserved_used_mb, 2),
+    }
+
+
+def _latest_number(rows: list[dict], key: str) -> float | None:
+    values = [float(row[key]) for row in rows if row.get(key) is not None]
+    return values[-1] if values else None

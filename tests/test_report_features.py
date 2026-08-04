@@ -16,6 +16,10 @@ from src.core.run_repository import (  # noqa: E402
     save_report,
     save_report_chat_message,
 )
+from src.nodes.global_health_node import (  # noqa: E402
+    fetch_global_health_overview,
+    target_nodes_from_warning_signals,
+)
 from src.main import ReportChatResult, app  # noqa: E402
 import src.main as main_module  # noqa: E402
 
@@ -69,6 +73,124 @@ class ReportFeatureTest(unittest.TestCase):
         self.assertIn("risk_scores", chart_ids)
         self.assertIn("memory_metrics", chart_ids)
         self.assertNotIn("os_cluster_metrics", chart_ids)
+
+    def test_build_report_charts_supports_multiple_chart_types(self) -> None:
+        charts = build_report_charts(
+            {
+                "node_result": [
+                    {
+                        "node": "memory",
+                        "result": {
+                            "metric_timeseries": {
+                                "shared_pool_free_mb": [
+                                    {"time": "09:50", "value": 180},
+                                    {"time": "09:55", "value": 140},
+                                    {"time": "10:00", "value": 96},
+                                ],
+                            },
+                            "memory_breakdown": {
+                                "used_mb": 774,
+                                "free_mb": 96,
+                                "reserved_used_mb": 154,
+                            },
+                        },
+                    },
+                    {
+                        "node": "os",
+                        "result": {
+                            "resource_timeseries": {
+                                "cpu_util_pct": [
+                                    {"time": "09:50", "value": 60},
+                                    {"time": "09:55", "value": 78},
+                                    {"time": "10:00", "value": 86},
+                                ],
+                                "memory_util_pct": [
+                                    {"time": "09:50", "value": 70},
+                                    {"time": "09:55", "value": 82},
+                                    {"time": "10:00", "value": 84},
+                                ],
+                            },
+                            "bottleneck_distribution": {
+                                "CPU": 3,
+                                "Memory": 2,
+                                "Paging": 1,
+                            },
+                        },
+                    },
+                    {
+                        "node": "tempspace",
+                        "result": {
+                            "key_metrics": {"temp_used_pct": 87.7},
+                            "temp_usage_timeseries": {
+                                "temp_used_pct": [
+                                    {"time": "09:50", "value": 52.4},
+                                    {"time": "09:55", "value": 68.1},
+                                    {"time": "10:00", "value": 87.7},
+                                ],
+                            },
+                            "temp_space_breakdown": {
+                                "used_mb": 28736,
+                                "free_mb": 4032,
+                            },
+                        },
+                    },
+                    {
+                        "node": "log_write",
+                        "result": {
+                            "key_metrics": {"log_file_sync_avg_ms": 31.2},
+                            "redo_write_timeseries": {
+                                "redo_mb_per_sec": [
+                                    {"time": "09:50", "value": 72.6},
+                                    {"time": "09:55", "value": 86.8},
+                                    {"time": "10:00", "value": 92.4},
+                                ],
+                            },
+                            "wait_event_distribution": {
+                                "log file sync": 568000,
+                                "log file parallel write": 214000,
+                            },
+                        },
+                    },
+                ]
+            }
+        )
+
+        chart_types = {chart["id"]: chart["type"] for chart in charts}
+
+        self.assertEqual(chart_types["memory_trends"], "line")
+        self.assertEqual(chart_types["memory_breakdown"], "doughnut")
+        self.assertEqual(chart_types["os_resource_trends"], "line")
+        self.assertEqual(chart_types["os_bottleneck_distribution"], "pie")
+        self.assertEqual(chart_types["tempspace_trends"], "line")
+        self.assertEqual(chart_types["tempspace_breakdown"], "doughnut")
+        self.assertEqual(chart_types["log_write_trends"], "line")
+        self.assertEqual(chart_types["log_write_wait_distribution"], "pie")
+
+    def test_global_health_routes_from_warning_signals(self) -> None:
+        cases = {
+            "memory_warning": ["memory"],
+            "os_warning": ["os"],
+            "tempspace_warning": ["tempspace"],
+            "log_write_warning": ["log_write"],
+            "mixed_warning": ["memory", "os", "tempspace", "log_write"],
+        }
+        original_scenario = os.environ.get("DA_OPS_DEMO_SCENARIO")
+
+        try:
+            for scenario, expected_nodes in cases.items():
+                with self.subTest(scenario=scenario):
+                    os.environ["DA_OPS_DEMO_SCENARIO"] = scenario
+                    overview = fetch_global_health_overview("TESTDB", f"run-{scenario}")
+
+                    self.assertEqual(
+                        target_nodes_from_warning_signals(overview),
+                        expected_nodes,
+                    )
+        finally:
+            if original_scenario is None:
+                os.environ.pop("DA_OPS_DEMO_SCENARIO", None)
+            else:
+                os.environ["DA_OPS_DEMO_SCENARIO"] = original_scenario
 
     def test_report_chart_and_chat_api(self) -> None:
         run_id = "run-api-1"

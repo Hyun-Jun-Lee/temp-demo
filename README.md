@@ -94,8 +94,8 @@ http://127.0.0.1:8000
 START
   -> classifier
       -> global_health
-          -> memory and/or os
-      -> memory and/or os
+          -> memory and/or os and/or tempspace and/or log_write
+      -> memory and/or os and/or tempspace and/or log_write
   -> summary
   -> validation
   -> END
@@ -106,13 +106,15 @@ START
 - `classifier`
   - 사용자 질문을 보고 다음에 실행할 노드를 결정합니다.
   - 포괄 질문은 `global_health`로 보냅니다.
-  - 메모리 질문은 `memory`, OS/서버 질문은 `os`로 보냅니다.
+  - 메모리 질문은 `memory`, OS/서버 질문은 `os`, TEMP 질문은 `tempspace`, commit/redo 질문은 `log_write`로 보냅니다.
 
 - `global_health`
   - DB 전반 상태 overview 데이터를 확인한 뒤 필요한 서브 에이전트를 선택합니다.
   - memory 신호가 있으면 `memory`
   - OS/server 신호가 있으면 `os`
-  - 둘 다 있거나 데이터가 불충분하면 둘 다 선택합니다.
+  - TEMP/workarea spill 신호가 있으면 `tempspace`
+  - redo/LGWR/commit latency 신호가 있으면 `log_write`
+  - 여러 영역에 신호가 있거나 데이터가 불충분하면 관련 노드를 함께 선택합니다.
 
 - `memory`
   - Oracle DB 인스턴스의 Shared Pool, parse, cache, reserved pool, ORA-04031 위험을 분석합니다.
@@ -121,6 +123,14 @@ START
 - `os`
   - 인스턴스별 OS 리소스 분석 결과를 RAC 레벨로 요약합니다.
   - CPU/메모리 압박, swap/paging, PGA 압박, workload skew, node imbalance를 판단합니다.
+  - demo에서는 정상 또는 경고 샘플 데이터가 시나리오에 따라 반환됩니다.
+
+- `tempspace`
+  - TEMP tablespace 사용률, top TEMP 세션, workarea spill, TEMP 고갈 위험을 분석합니다.
+  - demo에서는 정상 또는 경고 샘플 데이터가 시나리오에 따라 반환됩니다.
+
+- `log_write`
+  - redo generation, LGWR write latency, commit latency, log file sync, log switch 빈도를 분석합니다.
   - demo에서는 정상 또는 경고 샘플 데이터가 시나리오에 따라 반환됩니다.
 
 - `summary`
@@ -234,6 +244,8 @@ GET /reports/{run_id}
 - `normal`
 - `memory_warning`
 - `os_warning`
+- `tempspace_warning`
+- `log_write_warning`
 - `mixed_warning`
 
 특정 시나리오를 고정하려면 아래 환경변수를 설정합니다.

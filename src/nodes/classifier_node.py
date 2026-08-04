@@ -8,7 +8,7 @@ from src.core.state import MainState
 from src.prompt.classifier_prompt import SYSTEM_PROMPT, USER_PROMPT
 
 
-TargetNode = Literal["global_health", "memory", "os"]
+TargetNode = Literal["global_health", "memory", "os", "tempspace", "log_write"]
 
 
 class ClassifierResult(BaseModel):

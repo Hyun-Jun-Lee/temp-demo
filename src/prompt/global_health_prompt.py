@@ -16,20 +16,28 @@ Available target nodes:
   involve CPU, memory, swap, paging, PGA pressure, workload skew, node imbalance, load
   average, disk usage, filesystem capacity, I/O, network, processes, uptime, server
   resource pressure, or general OS/server instability.
+- tempspace: Checks TEMP tablespace and workarea spill health. Use this node when the
+  situation may involve high TEMP usage, low TEMP free space, sort/hash spill, workarea
+  spill, or sessions consuming excessive temporary space.
+- log_write: Checks redo, LGWR, commit latency, and log switch health. Use this node when
+  the situation may involve slow commits, log file sync, log file parallel write, redo
+  generation spikes, frequent log switches, or LGWR bottlenecks.
 
 Routing rules:
 - For broad questions such as whether the DB is healthy, normal, slow, unstable, or has
   a problem, inspect the database-wide health overview and choose the specialized nodes
   that are needed to explain abnormal or suspicious signals.
-- If overview data shows both memory-related and OS/server-related suspicious signals,
-  return both memory and os.
+- If overview data shows multiple suspicious domains, return all relevant specialized nodes.
 - If overview data is missing, stale, conflicting, or too broad to isolate a likely area,
-  return both memory and os.
+  return memory, os, tempspace, and log_write.
 - If overview data implies memory pressure or memory-related DB symptoms, include memory.
 - If the question implies host, CPU, memory, swap, paging, PGA pressure, workload skew,
   node imbalance, disk, I/O, network, process, or server-level issues, include os.
+- If overview data implies TEMP pressure, workarea spill, or high temporary usage, include tempspace.
+- If overview data implies commit latency, redo write latency, LGWR pressure, or frequent log switches, include log_write.
+- If all overview domains look normal for a broad health question, return memory and os as baseline validation nodes.
 - Return at least one target node.
-- Do not return global_health. This node can only route to memory and os.
+- Do not return global_health. This node can only route to memory, os, tempspace, and log_write.
 
 Few-shot examples:
 
@@ -57,6 +65,16 @@ User question: "DB 서버 디스크가 꽉 찼는지 봐주세요"
 Overview signal: "Filesystem capacity warning exists."
 Response:
 {"target_nodes": ["os"], "reason": "디스크 용량은 OS/서버 상태 점검 영역입니다."}
+
+User question: "DB가 전반적으로 느려졌어요"
+Overview signal: "TEMP usage is 88%, workarea spill increased, and commit latency is normal."
+Response:
+{"target_nodes": ["tempspace"], "reason": "전반 상태 데이터에서 TEMP 사용률과 workarea spill 경고가 확인되었습니다."}
+
+User question: "DB 상태 정상인가요?"
+Overview signal: "log file sync and log file parallel write latency are elevated."
+Response:
+{"target_nodes": ["log_write"], "reason": "전반 상태 데이터에서 redo/log write 지연 신호가 확인되었습니다."}
 """
 
 USER_PROMPT = """

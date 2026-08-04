@@ -12,7 +12,7 @@ Role:
 - Keep the answer concise, practical, and operational.
 
 Grounding rules:
-- cited_nodes should include node names that directly support the answer, such as global_health, memory, os, summary, or validation.
+- cited_nodes should include node names that directly support the answer, such as global_health, memory, os, tempspace, log_write, summary, or validation.
 - If the answer mainly uses general DB operation knowledge, cited_nodes can be empty.
 - confidence_score is 0 to 100. Lower it when report evidence is sparse or when you rely heavily on general guidance.
 """.strip()

@@ -8,10 +8,15 @@ from src.core.run_repository import save_node_status
 from src.core.state import MainState
 from src.nodes.classifier_node import classifier_node
 from src.nodes.global_health_node import global_health_node
+from src.nodes.log_write_node import log_write_node
 from src.nodes.memory_node import memory_node
 from src.nodes.os_node import os_node
 from src.nodes.summary_node import summary_node
+from src.nodes.tempspace_node import tempspace_node
 from src.nodes.validation_node import validation_node
+
+
+EXECUTABLE_NODES = {"memory", "os", "tempspace", "log_write"}
 
 
 def graph_builder():
@@ -32,6 +37,8 @@ def register_nodes(graph: StateGraph) -> StateGraph:
     )
     graph.add_node("memory", _with_node_tracking("memory", memory_node))
     graph.add_node("os", _with_node_tracking("os", os_node))
+    graph.add_node("tempspace", _with_node_tracking("tempspace", tempspace_node))
+    graph.add_node("log_write", _with_node_tracking("log_write", log_write_node))
     graph.add_node("summary", _with_node_tracking("summary", summary_node))
     graph.add_node("validation", _with_node_tracking("validation", validation_node))
 
@@ -44,15 +51,17 @@ def register_edges(graph: StateGraph) -> StateGraph:
     graph.add_conditional_edges(
         "classifier",
         _route_from_classifier,
-        ["global_health", "memory", "os"],
+        ["global_health", "memory", "os", "tempspace", "log_write"],
     )
     graph.add_conditional_edges(
         "global_health",
         _route_to_target_nodes,
-        ["memory", "os"],
+        ["memory", "os", "tempspace", "log_write"],
     )
     graph.add_edge("memory", "summary")
     graph.add_edge("os", "summary")
+    graph.add_edge("tempspace", "summary")
+    graph.add_edge("log_write", "summary")
     graph.add_edge("summary", "validation")
     graph.add_edge("validation", END)
 
@@ -74,10 +83,13 @@ def _route_to_target_nodes(state: MainState) -> list[Send]:
 
 
 def _send_to_target_nodes(state: MainState, target_nodes: Sequence[str]) -> list[Send]:
-    nodes = [node_name for node_name in target_nodes if node_name in {"memory", "os"}]
+    nodes = [node_name for node_name in target_nodes if node_name in EXECUTABLE_NODES]
 
     if not nodes:
-        raise ValueError("target_nodes must include at least one executable node: memory or os")
+        raise ValueError(
+            "target_nodes must include at least one executable node: "
+            f"{', '.join(sorted(EXECUTABLE_NODES))}"
+        )
 
     return [Send(node_name, state) for node_name in nodes]
 

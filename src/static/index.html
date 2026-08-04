@@ -24,127 +24,284 @@
         },
       };
     </script>
+    <style>
+      :root {
+        --surface: rgba(255, 255, 255, 0.94);
+        --surface-muted: #f8fafc;
+        --line: #dbe3ef;
+        --line-strong: #cbd5e1;
+        --accent: #2563eb;
+        --ink: #0f172a;
+      }
+
+      body {
+        background:
+          linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(239, 246, 255, 0.72)),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+        background-size: auto, 48px 48px, 48px 48px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+      }
+
+      .panel-muted {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-muted);
+      }
+
+      .panel-header {
+        border-bottom: 1px solid var(--line);
+        padding: 16px 18px;
+      }
+
+      .section-title {
+        color: var(--ink);
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .section-subtitle {
+        margin-top: 4px;
+        color: #64748b;
+        font-size: 0.82rem;
+      }
+
+      .button-primary {
+        border-radius: 12px;
+        background: var(--accent);
+        color: white;
+        font-weight: 700;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+        transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+      }
+
+      .button-primary:hover {
+        background: #1d4ed8;
+        box-shadow: 0 16px 30px rgba(37, 99, 235, 0.28);
+      }
+
+      .button-primary:active,
+      .button-secondary:active {
+        transform: translateY(1px) scale(0.99);
+      }
+
+      .button-primary:disabled {
+        cursor: not-allowed;
+        background: #93c5fd;
+        box-shadow: none;
+      }
+
+      .button-secondary {
+        border: 1px solid var(--line-strong);
+        border-radius: 12px;
+        background: white;
+        color: #1d4ed8;
+        font-weight: 700;
+        transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+      }
+
+      .button-secondary:hover {
+        border-color: #93c5fd;
+        background: #eff6ff;
+      }
+
+      .field-control {
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        background: white;
+        color: var(--ink);
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .field-control:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      }
+
+      .metric-surface {
+        border: 1px solid #dbeafe;
+        border-radius: 16px;
+        background: linear-gradient(180deg, white, #f8fbff);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
   </head>
-  <body class="min-h-screen bg-blue-50 text-slate-900">
-    <main class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-6 py-8">
-      <header class="flex flex-col gap-2">
-        <p class="text-sm font-semibold uppercase tracking-wide text-blue-600">DA Ops Demo</p>
-        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 class="text-3xl font-bold text-blue-950">DB 운영 진단 콘솔</h1>
-            <p class="mt-2 text-sm text-slate-600">
-              DB를 선택하고 질문을 입력하면 LangGraph 노드 실행 상태와 결과를 확인할 수 있습니다.
-            </p>
-          </div>
-          <div id="runBadge" class="hidden rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-blue-700 shadow-sm"></div>
+  <body class="min-h-screen text-slate-900 antialiased">
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/92 backdrop-blur">
+      <div class="mx-auto grid max-w-[1480px] grid-cols-1 items-center gap-3 px-4 py-4 sm:px-6 lg:grid-cols-[1fr_auto_1fr] lg:px-8">
+        <div class="flex items-center justify-between gap-4">
+          <h1 class="text-xl font-bold tracking-tight text-slate-950">DB 운영 진단 콘솔</h1>
+          <div id="runBadge" class="hidden rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 font-mono text-xs text-blue-700 lg:hidden"></div>
         </div>
-      </header>
-
-      <nav class="flex gap-2 rounded-lg border border-blue-100 bg-white p-2 shadow-sm">
-        <button id="runTabButton" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
-          실행
-        </button>
-        <button id="reportTabButton" class="rounded-md px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
-          Report
-        </button>
-      </nav>
-
-      <section id="runView" class="flex flex-col gap-6">
-      <section class="rounded-lg border border-blue-100 bg-white shadow-sm">
-        <div class="border-b border-blue-100 px-5 py-4">
-          <h2 class="text-lg font-semibold text-blue-950">DB 목록</h2>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-blue-100 text-sm">
-            <thead class="bg-blue-50 text-left text-xs font-semibold uppercase text-blue-700">
-              <tr>
-                <th class="w-14 px-5 py-3">선택</th>
-                <th class="px-5 py-3">DB 이름</th>
-                <th class="px-5 py-3">서비스</th>
-                <th class="px-5 py-3">역할</th>
-                <th class="px-5 py-3">상태</th>
-              </tr>
-            </thead>
-            <tbody id="dbTableBody" class="divide-y divide-blue-50 bg-white"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
-        <label for="questionInput" class="text-sm font-semibold text-blue-950">질문</label>
-        <div class="mt-3 flex flex-col gap-3 md:flex-row">
-          <textarea
-            id="questionInput"
-            rows="3"
-            class="min-h-24 flex-1 resize-none rounded-md border border-blue-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            placeholder="예: DB 상태 정상인가요?"
-          ></textarea>
-          <button
-            id="askButton"
-            class="inline-flex h-12 items-center justify-center rounded-md bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-          >
-            질문하기
+        <nav class="flex items-center justify-center gap-8">
+          <button id="runTabButton" class="border-b-2 border-blue-600 pb-1.5 text-sm font-semibold text-blue-700 transition hover:text-blue-700">
+            실행
           </button>
+          <button id="reportTabButton" class="border-b-2 border-transparent pb-1.5 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-900">
+            Report
+          </button>
+        </nav>
+        <div class="hidden justify-end lg:flex">
+          <div id="runBadgeDesktop" class="hidden rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 font-mono text-xs text-blue-700"></div>
         </div>
-        <p id="formMessage" class="mt-3 hidden text-sm"></p>
-      </section>
+      </div>
+    </header>
+
+    <main class="mx-auto flex max-w-[1480px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+      <section id="runView" class="flex flex-col gap-6">
+        <section class="panel overflow-hidden">
+          <div class="panel-header flex items-center justify-between">
+            <div>
+              <h2 class="section-title">DB 목록</h2>
+              <p class="section-subtitle">진단할 대상 DB를 하나 선택하세요.</p>
+            </div>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Inventory</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+              <thead class="bg-slate-50 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                <tr>
+                  <th class="w-14 px-5 py-3">선택</th>
+                  <th class="px-5 py-3">DB 이름</th>
+                  <th class="px-5 py-3">서비스</th>
+                  <th class="px-5 py-3">역할</th>
+                  <th class="px-5 py-3">상태</th>
+                </tr>
+              </thead>
+              <tbody id="dbTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel p-5">
+          <label for="questionInput" class="section-title">질문</label>
+          <div class="mt-3 flex flex-col gap-3">
+            <textarea
+              id="questionInput"
+              rows="3"
+              class="field-control min-h-24 w-full resize-none px-4 py-3 text-sm outline-none"
+              placeholder="예: DB 상태 정상인가요?"
+            ></textarea>
+            <button
+              id="askButton"
+              class="button-primary inline-flex h-12 w-full items-center justify-center px-6 text-sm sm:w-fit"
+            >
+              질문하기
+            </button>
+          </div>
+          <p id="formMessage" class="mt-3 hidden text-sm"></p>
+        </section>
 
       <section class="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <div class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+        <div class="panel p-5">
           <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-blue-950">노드 진행상황</h2>
+            <div>
+              <h2 class="section-title">노드 진행상황</h2>
+              <p class="section-subtitle">실행되는 노드가 순서대로 기록됩니다.</p>
+            </div>
             <div class="flex gap-2">
-              <button id="reportShortcutButton" class="hidden rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              <button id="reportShortcutButton" class="button-primary hidden px-3 py-2 text-sm">
                 Report 바로가기
               </button>
-              <button id="refreshButton" class="hidden rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">
+              <button id="refreshButton" class="button-secondary hidden px-3 py-2 text-sm">
                 새로고침
               </button>
             </div>
           </div>
           <div id="nodeGrid" class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+            <div class="panel-muted px-4 py-8 text-center text-sm text-slate-500">
               아직 실행된 작업이 없습니다.
             </div>
           </div>
         </div>
 
-        <aside class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+        <aside class="panel p-5">
           <div class="mb-4">
-            <h2 class="text-lg font-semibold text-blue-950">노드 결과</h2>
-            <p class="mt-1 text-sm text-slate-500">진행상황 박스를 클릭하면 결과가 표시됩니다.</p>
+            <h2 class="section-title">노드 결과</h2>
+            <p class="section-subtitle">진행상황 박스를 클릭하면 결과가 표시됩니다.</p>
           </div>
-          <div id="resultPanel" class="min-h-80 rounded-md border border-blue-100 bg-blue-50 p-4 text-sm text-slate-600">
+          <div id="resultPanel" class="panel-muted min-h-80 p-4 text-sm text-slate-600">
             선택된 노드가 없습니다.
           </div>
         </aside>
       </section>
       </section>
 
-      <section id="reportView" class="hidden grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]" style="display: none">
-        <aside class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+      <section id="reportView" class="hidden grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)_360px]" style="display: none">
+        <aside class="panel p-5">
           <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-blue-950">Report 목록</h2>
-            <button id="reportRefreshButton" class="rounded-md border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">
+            <div>
+              <h2 class="section-title">Report 목록</h2>
+              <p class="section-subtitle">완료된 실행 결과</p>
+            </div>
+            <button id="reportRefreshButton" class="button-secondary px-3 py-2 text-sm">
               새로고침
             </button>
           </div>
           <div id="reportList" class="space-y-2">
-            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+            <div class="panel-muted px-4 py-8 text-center text-sm text-slate-500">
               저장된 Report가 없습니다.
             </div>
           </div>
         </aside>
 
-        <article class="rounded-lg border border-blue-100 bg-white p-5 shadow-sm">
+        <article class="panel p-5">
           <div class="mb-4">
-            <h2 class="text-lg font-semibold text-blue-950">Report 상세</h2>
-            <p class="mt-1 text-sm text-slate-500">run_id를 선택하면 최종 결과를 확인할 수 있습니다.</p>
+            <h2 class="section-title">Report 상세</h2>
+            <p class="section-subtitle">run_id를 선택하면 최종 결과를 확인할 수 있습니다.</p>
           </div>
-          <div id="reportPanel" class="min-h-96 rounded-md border border-blue-100 bg-blue-50 p-5 text-sm text-slate-600">
+          <div id="reportPanel" class="panel-muted min-h-96 p-5 text-sm text-slate-600">
             선택된 Report가 없습니다.
           </div>
         </article>
+
+        <aside class="panel p-5 lg:sticky lg:top-5 lg:max-h-[calc(100dvh-2.5rem)]">
+          <div class="mb-4">
+            <div class="mb-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">AI Chat</div>
+            <h2 class="section-title">Report 질의응답</h2>
+            <p class="section-subtitle">선택된 단일 run_id 범위에서 답변합니다.</p>
+          </div>
+          <div id="reportChatPanel" class="flex min-h-96 flex-col lg:max-h-[calc(100dvh-10rem)]">
+            <div id="reportChatHistory" class="panel-muted flex-1 space-y-3 overflow-y-auto p-3">
+              <p class="px-2 py-6 text-center text-sm text-slate-500">
+                Report를 선택하면 질문할 수 있습니다.
+              </p>
+            </div>
+            <div class="mt-3 flex flex-col gap-2">
+              <textarea
+                id="reportChatInput"
+                rows="3"
+                disabled
+                class="field-control min-h-24 resize-none px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                placeholder="예: OS 경고 원인을 어떻게 봐야 하나요?"
+              ></textarea>
+              <button
+                id="reportChatButton"
+                disabled
+                class="button-primary inline-flex h-11 items-center justify-center px-4 text-sm"
+              >
+                질문하기
+              </button>
+            </div>
+            <p id="reportChatMessage" class="mt-2 hidden text-sm"></p>
+          </div>
+        </aside>
       </section>
     </main>
 
@@ -156,6 +313,7 @@
       const nodeGrid = document.getElementById("nodeGrid");
       const resultPanel = document.getElementById("resultPanel");
       const runBadge = document.getElementById("runBadge");
+      const runBadgeDesktop = document.getElementById("runBadgeDesktop");
       const refreshButton = document.getElementById("refreshButton");
       const reportShortcutButton = document.getElementById("reportShortcutButton");
       const runTabButton = document.getElementById("runTabButton");
@@ -165,6 +323,8 @@
       const reportRefreshButton = document.getElementById("reportRefreshButton");
       const reportList = document.getElementById("reportList");
       const reportPanel = document.getElementById("reportPanel");
+      const reportChatInput = document.getElementById("reportChatInput");
+      const reportChatButton = document.getElementById("reportChatButton");
 
       let selectedDbName = "";
       let currentRunId = "";
@@ -177,10 +337,10 @@
       let reportLoadToken = 0;
 
       const statusClasses = {
-        QUEUED: "border-slate-200 bg-slate-50 text-slate-700",
+        QUEUED: "border-slate-200 bg-white text-slate-700",
         RUNNING: "border-blue-200 bg-blue-50 text-blue-700",
         COMPLETE: "border-emerald-200 bg-emerald-50 text-emerald-700",
-        FAILED: "border-red-200 bg-red-50 text-red-700",
+        FAILED: "border-rose-200 bg-rose-50 text-rose-700",
       };
 
       function displayStatus(status) {
@@ -200,20 +360,20 @@
         dbTableBody.innerHTML = databases
           .map(
             (db, index) => `
-              <tr class="hover:bg-blue-50">
+              <tr class="transition hover:bg-slate-50">
                 <td class="px-5 py-4">
                   <input
                     type="checkbox"
-                    class="db-checkbox h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                    class="db-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     data-db-name="${db.db_name}"
                     ${index === 0 ? "checked" : ""}
                   />
                 </td>
-                <td class="px-5 py-4 font-semibold text-blue-950">${db.db_name}</td>
-                <td class="px-5 py-4 text-slate-600">${db.service_name}</td>
+                <td class="px-5 py-4 font-mono text-sm font-semibold text-slate-950">${db.db_name}</td>
+                <td class="px-5 py-4 font-mono text-xs text-slate-500">${db.service_name}</td>
                 <td class="px-5 py-4 text-slate-600">${db.role}</td>
                 <td class="px-5 py-4">
-                  <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">${db.status}</span>
+                  <span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">${db.status}</span>
                 </td>
               </tr>
             `
@@ -274,6 +434,8 @@
         latestStatuses = [];
         runBadge.textContent = `run_id: ${currentRunId}`;
         runBadge.classList.remove("hidden");
+        runBadgeDesktop.textContent = `run_id: ${currentRunId}`;
+        runBadgeDesktop.classList.remove("hidden");
         refreshButton.classList.remove("hidden");
         renderNodeGrid();
         showMessage("작업이 등록되었습니다. 진행상황을 조회합니다.");
@@ -324,7 +486,7 @@
 
         if (!latestStatuses.length && !runActive) {
           nodeGrid.innerHTML = `
-            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+            <div class="panel-muted px-4 py-8 text-center text-sm text-slate-500">
               아직 실행된 작업이 없습니다.
             </div>
           `;
@@ -338,14 +500,14 @@
             const statusClass = statusClasses[item.node_status] || "border-slate-200 bg-slate-50 text-slate-700";
             return `
               <button
-                class="node-card rounded-md border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${statusClass} ${active ? "ring-2 ring-blue-400" : ""}"
+                class="node-card rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${statusClass} ${active ? "ring-2 ring-blue-300" : ""}"
                 data-node-name="${item.node_name}"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <span class="font-semibold">${item.node_name}</span>
-                  <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold">${displayStatus(item.node_status)}</span>
+                  <span class="font-mono text-sm font-semibold">${item.node_name}</span>
+                  <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold shadow-sm">${displayStatus(item.node_status)}</span>
                 </div>
-                <p class="mt-3 text-xs opacity-75">${item.created_at}</p>
+                <p class="mt-3 truncate font-mono text-[11px] opacity-70">${item.created_at}</p>
               </button>
             `;
           })
@@ -353,7 +515,7 @@
 
         const loadingCard = runActive
           ? `
-            <div class="rounded-md border border-dashed border-blue-300 bg-white p-4 text-blue-700 shadow-sm">
+            <div class="rounded-2xl border border-dashed border-blue-300 bg-white p-4 text-blue-700 shadow-sm">
               <div class="flex items-center justify-between gap-3">
                 <span class="font-semibold">다음 노드 대기중</span>
                 <span class="flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold">
@@ -399,10 +561,10 @@
 
         resultPanel.innerHTML = `
           <div class="mb-3 flex items-center justify-between gap-3">
-            <h3 class="font-semibold text-blue-950">${item.node_name}</h3>
-            <span class="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-blue-700">${displayStatus(item.node_status)}</span>
+            <h3 class="font-mono text-sm font-semibold text-slate-950">${item.node_name}</h3>
+            <span class="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-blue-700 shadow-sm">${displayStatus(item.node_status)}</span>
           </div>
-          <pre class="max-h-[520px] overflow-auto rounded-md bg-white p-4 text-xs leading-relaxed text-slate-800">${escapeHtml(JSON.stringify(item.node_result, null, 2))}</pre>
+          <pre class="max-h-[520px] overflow-auto rounded-xl bg-slate-950 p-4 font-mono text-xs leading-relaxed text-slate-100">${escapeHtml(JSON.stringify(item.node_result, null, 2))}</pre>
         `;
       }
 
@@ -413,16 +575,18 @@
         reportView.classList.toggle("hidden", !reportActive);
         runView.style.display = reportActive ? "none" : "";
         reportView.style.display = reportActive ? "" : "none";
-        runTabButton.className = reportActive
-          ? "rounded-md px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
-          : "rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white";
-        reportTabButton.className = reportActive
-          ? "rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-          : "rounded-md px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50";
+        runTabButton.className = navMenuClass(!reportActive);
+        reportTabButton.className = navMenuClass(reportActive);
 
         if (reportActive) {
           loadReports(selectedReportRunId || currentRunId);
         }
+      }
+
+      function navMenuClass(active) {
+        return active
+          ? "border-b-2 border-blue-600 pb-1.5 text-sm font-semibold text-blue-700 transition hover:text-blue-700"
+          : "border-b-2 border-transparent pb-1.5 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-900";
       }
 
       async function loadReports(preferredRunId = "") {
@@ -431,17 +595,22 @@
 
         const payload = await response.json();
         latestReports = payload.reports;
+        const hasPreferredRun = preferredRunId && latestReports.some((report) => report.run_id === preferredRunId);
+        const hasSelectedRun = selectedReportRunId && latestReports.some((report) => report.run_id === selectedReportRunId);
 
-        if (preferredRunId) {
+        if (hasPreferredRun) {
           selectedReportRunId = preferredRunId;
-        } else if (!selectedReportRunId && latestReports.length) {
-          selectedReportRunId = latestReports[0].run_id;
+        } else if (!hasSelectedRun) {
+          selectedReportRunId = latestReports[0]?.run_id || "";
         }
 
         renderReportList();
 
         if (selectedReportRunId) {
           loadReport(selectedReportRunId);
+        } else {
+          renderEmptyReportPanel();
+          resetReportChatPanel();
         }
       }
 
@@ -449,6 +618,7 @@
         selectedReportRunId = runId;
         const token = ++reportLoadToken;
         renderReportList();
+        setReportChatEnabled(false);
 
         try {
           const response = await fetch(`/reports/${runId}`);
@@ -456,6 +626,7 @@
 
           if (!response.ok) {
             reportPanel.innerHTML = "Report를 불러오지 못했습니다.";
+            setReportChatEnabled(false, "Report를 불러오지 못했습니다.", "error");
             return;
           }
 
@@ -463,18 +634,25 @@
           if (selectedReportRunId !== runId || token !== reportLoadToken) return;
 
           renderReportPanel(report);
+          setReportChatEnabled(true);
           loadReportCharts(report.run_id);
           loadReportChat(report.run_id);
         } catch (error) {
           if (selectedReportRunId !== runId || token !== reportLoadToken) return;
           reportPanel.innerHTML = "Report를 불러오지 못했습니다.";
+          setReportChatEnabled(false, "Report를 불러오지 못했습니다.", "error");
         }
+      }
+
+      function renderEmptyReportPanel() {
+        clearReportCharts();
+        reportPanel.innerHTML = "선택된 Report가 없습니다.";
       }
 
       function renderReportList() {
         if (!latestReports.length) {
           reportList.innerHTML = `
-            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+            <div class="panel-muted px-4 py-8 text-center text-sm text-slate-500">
               저장된 Report가 없습니다.
             </div>
           `;
@@ -487,12 +665,15 @@
             const result = report.report_result || {};
             return `
               <button
-                class="report-item w-full rounded-md border p-3 text-left text-sm transition hover:bg-blue-50 ${selected ? "border-blue-400 bg-blue-50 ring-2 ring-blue-100" : "border-blue-100 bg-white"}"
+                class="report-item w-full rounded-2xl border p-3 text-left text-sm transition hover:border-blue-200 hover:bg-blue-50/60 ${selected ? "border-blue-300 bg-blue-50 ring-2 ring-blue-100" : "border-slate-200 bg-white"}"
                 data-run-id="${report.run_id}"
               >
-                <div class="font-semibold text-blue-950">${result.db_name || "UNKNOWN_DB"}</div>
-                <div class="mt-1 truncate text-xs text-slate-500">${report.run_id}</div>
-                <div class="mt-2 text-xs text-blue-700">${report.created_at}</div>
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-mono text-sm font-semibold text-slate-950">${result.db_name || "UNKNOWN_DB"}</div>
+                  <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-blue-700">report</span>
+                </div>
+                <div class="mt-2 truncate font-mono text-[11px] text-slate-500">${report.run_id}</div>
+                <div class="mt-2 font-mono text-[11px] text-slate-400">${formatDateTimeToSeconds(report.created_at)}</div>
               </button>
             `;
           })
@@ -509,31 +690,35 @@
         const summaryResult = findNodeResult(nodeResults, "summary");
         const memoryResult = findNodeResult(nodeResults, "memory");
         const osResult = findNodeResult(nodeResults, "os");
+        const tempspaceResult = findNodeResult(nodeResults, "tempspace");
+        const logWriteResult = findNodeResult(nodeResults, "log_write");
         const globalHealthResult = findNodeResult(nodeResults, "global_health");
         const overallScore = summaryResult?.overall_score ?? "-";
         const overallStatus = summaryResult?.overall_status ?? result.validation_result ?? "-";
 
         reportPanel.innerHTML = `
           <div class="space-y-4">
-            <div class="rounded-md bg-white p-4">
-              <div class="text-xs font-semibold uppercase text-blue-600">run_id</div>
-              <div class="mt-1 break-all text-sm font-medium text-blue-950">${report.run_id}</div>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4">
+              <div class="text-xs font-semibold text-slate-500">run_id</div>
+              <div class="mt-1 break-all font-mono text-sm font-medium text-slate-950">${report.run_id}</div>
             </div>
             <div class="grid gap-3 md:grid-cols-2">
-              <div class="rounded-md bg-white p-4">
-                <div class="text-xs font-semibold uppercase text-blue-600">DB</div>
-                <div class="mt-1 text-sm font-medium text-blue-950">${result.db_name || "-"}</div>
+              <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                <div class="text-xs font-semibold text-slate-500">DB</div>
+                <div class="mt-1 font-mono text-sm font-medium text-slate-950">${result.db_name || "-"}</div>
               </div>
-              <div class="rounded-md bg-white p-4">
-                <div class="text-xs font-semibold uppercase text-blue-600">Overall Status</div>
-                <div class="mt-1 text-sm font-medium text-blue-950">${overallStatus}</div>
+              <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                <div class="text-xs font-semibold text-slate-500">Overall Status</div>
+                <div class="mt-1 text-sm font-semibold text-slate-950">${overallStatus}</div>
               </div>
             </div>
-            <div class="grid gap-3 md:grid-cols-4">
+            <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
               ${metricCard("Overall Risk", overallScore, "/ 100")}
               ${metricCard("Global Health", globalHealthResult?.overall_health_score ?? "-", "/ 100")}
               ${metricCard("Memory Severity", memoryResult?.severity_score ?? "-", "/ 100")}
               ${metricCard("OS Severity", osResult?.severity_score ?? "-", "/ 100")}
+              ${metricCard("TEMP Severity", tempspaceResult?.severity_score ?? "-", "/ 100")}
+              ${metricCard("Log Write Severity", logWriteResult?.severity_score ?? "-", "/ 100")}
             </div>
             <div class="grid gap-3 md:grid-cols-3">
               ${metricCard("OS CPU Pressure", osResult?.cpu_pressure_score ?? "-", "/ 100")}
@@ -544,64 +729,37 @@
               ${renderFindingCard("핵심 발견", summaryResult?.key_findings || [])}
               ${renderFindingCard("권고사항", summaryResult?.recommended_actions || [])}
             </div>
-            <section class="rounded-md bg-white p-4">
+            <section class="rounded-2xl border border-slate-200 bg-white p-4">
               <div class="flex items-center justify-between gap-3">
                 <div>
-                  <div class="text-xs font-semibold uppercase text-blue-600">Charts</div>
-                  <h3 class="mt-1 text-base font-semibold text-blue-950">수집 데이터 시각화</h3>
+                  <div class="text-xs font-semibold text-slate-500">Charts</div>
+                  <h3 class="mt-1 text-base font-semibold text-slate-950">수집 데이터 시각화</h3>
                 </div>
-                <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Chart.js</span>
               </div>
               <div id="reportCharts" class="mt-4 grid gap-4 xl:grid-cols-2">
-                <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+                <div class="panel-muted px-4 py-8 text-center text-sm text-slate-500">
                   차트 데이터를 불러오는 중입니다.
                 </div>
               </div>
             </section>
             ${renderMetricsTable("Memory 주요 지표", memoryResult?.key_metrics || {})}
             ${renderMetricsTable("OS Cluster 지표", osResult?.cluster_metrics || {})}
-            <div class="rounded-md bg-white p-4">
-              <div class="text-xs font-semibold uppercase text-blue-600">질문</div>
+            ${renderMetricsTable("TEMP 주요 지표", tempspaceResult?.key_metrics || {})}
+            ${renderMetricsTable("Log Write 주요 지표", logWriteResult?.key_metrics || {})}
+            <div class="rounded-2xl border border-slate-200 bg-white p-4">
+              <div class="text-xs font-semibold text-slate-500">질문</div>
               <div class="mt-1 text-sm text-slate-800">${escapeHtml(result.user_question || "-")}</div>
             </div>
-            <div class="rounded-md bg-white p-4">
-              <div class="text-xs font-semibold uppercase text-blue-600">최종 결과</div>
+            <div class="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm shadow-blue-100/50">
+              <div class="text-xs font-semibold text-slate-500">최종 결과</div>
               <div class="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">${escapeHtml(result.final_response || "-")}</div>
             </div>
-            <section class="rounded-md bg-white p-4">
-              <div class="mb-3">
-                <div class="text-xs font-semibold uppercase text-blue-600">AI Chat</div>
-                <h3 class="mt-1 text-base font-semibold text-blue-950">Report 질의응답</h3>
-              </div>
-              <div id="reportChatHistory" class="max-h-96 space-y-3 overflow-y-auto rounded-md border border-blue-100 bg-blue-50 p-3">
-                <div class="rounded-md border border-dashed border-blue-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
-                  이 report에 대해 질문해보세요.
-                </div>
-              </div>
-              <div class="mt-3 flex flex-col gap-2 md:flex-row">
-                <textarea
-                  id="reportChatInput"
-                  rows="2"
-                  class="min-h-20 flex-1 resize-none rounded-md border border-blue-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="예: OS 경고 원인을 어떻게 봐야 하나요?"
-                ></textarea>
-                <button
-                  id="reportChatButton"
-                  class="inline-flex h-11 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                >
-                  질문하기
-                </button>
-              </div>
-              <p id="reportChatMessage" class="mt-2 hidden text-sm"></p>
-            </section>
-            <details class="rounded-md bg-white p-4">
+            <details class="rounded-2xl border border-slate-200 bg-white p-4">
               <summary class="cursor-pointer text-sm font-semibold text-blue-700">원본 Report JSON</summary>
-              <pre class="mt-3 max-h-[420px] overflow-auto rounded-md bg-blue-50 p-4 text-xs leading-relaxed text-slate-800">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
+              <pre class="mt-3 max-h-[420px] overflow-auto rounded-xl bg-slate-950 p-4 font-mono text-xs leading-relaxed text-slate-100">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
             </details>
           </div>
         `;
-
-        document.getElementById("reportChatButton")?.addEventListener("click", sendReportChatMessage);
       }
 
       async function loadReportCharts(runId) {
@@ -633,7 +791,7 @@
         if (!chartsContainer) return;
 
         chartsContainer.innerHTML = `
-          <div class="rounded-md border border-red-100 bg-red-50 px-4 py-6 text-center text-sm text-red-600">
+          <div class="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-8 text-center text-sm text-rose-600">
             차트 데이터를 불러오지 못했습니다.
           </div>
         `;
@@ -647,7 +805,7 @@
 
         if (!charts.length) {
           chartsContainer.innerHTML = `
-            <div class="rounded-md border border-dashed border-blue-200 bg-blue-50 px-4 py-6 text-center text-sm text-slate-500">
+            <div class="panel-muted px-4 py-8 text-center text-sm text-slate-500">
               표시할 차트 데이터가 없습니다.
             </div>
           `;
@@ -657,10 +815,10 @@
         chartsContainer.innerHTML = charts
           .map(
             (chart) => `
-              <div class="rounded-md border border-blue-100 bg-blue-50 p-4">
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div class="mb-3 flex items-center justify-between gap-3">
-                  <h4 class="text-sm font-semibold text-blue-950">${escapeHtml(chart.title)}</h4>
-                  <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-blue-700">${escapeHtml(chart.type)}</span>
+                  <h4 class="text-sm font-semibold text-slate-950">${escapeHtml(chart.title)}</h4>
+                  <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">${escapeHtml(chart.type)}</span>
                 </div>
                 <div class="relative h-72">
                   <canvas id="chart-${escapeHtml(chart.id)}"></canvas>
@@ -673,18 +831,28 @@
         charts.forEach((chart) => {
           const canvas = document.getElementById(`chart-${chart.id}`);
           if (!canvas) return;
+          const chartType = chart.type || "bar";
+          const isCircularChart = chartType === "pie" || chartType === "doughnut";
 
           reportCharts[chart.id] = new Chart(canvas, {
-            type: chart.type || "bar",
+            type: chartType,
             data: {
               labels: chart.labels || [],
               datasets: (chart.datasets || []).map((dataset, index) => ({
                 label: dataset.label,
                 data: dataset.values || [],
-                backgroundColor: chartColor(index, 0.72),
-                borderColor: chartColor(index, 1),
-                borderWidth: 1,
-                borderRadius: 6,
+                backgroundColor: isCircularChart
+                  ? (dataset.values || []).map((_, colorIndex) => chartColor(colorIndex, 0.78))
+                  : chartColor(index, chartType === "line" ? 0.12 : 0.72),
+                borderColor: isCircularChart
+                  ? (dataset.values || []).map((_, colorIndex) => chartColor(colorIndex, 1))
+                  : chartColor(index, 1),
+                borderWidth: chartType === "line" ? 2 : 1,
+                borderRadius: chartType === "bar" ? 6 : 0,
+                fill: chartType === "line",
+                tension: chartType === "line" ? 0.35 : 0,
+                pointRadius: chartType === "line" ? 3 : 0,
+                pointHoverRadius: chartType === "line" ? 5 : 0,
               })),
             },
             options: {
@@ -692,21 +860,24 @@
               maintainAspectRatio: false,
               plugins: {
                 legend: {
-                  display: (chart.datasets || []).length > 1,
+                  display: isCircularChart || (chart.datasets || []).length > 1,
+                  position: isCircularChart ? "bottom" : "top",
                   labels: { boxWidth: 12 },
                 },
               },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: { color: "#dbeafe" },
-                  ticks: { color: "#475569" },
-                },
-                x: {
-                  grid: { display: false },
-                  ticks: { color: "#475569", maxRotation: 45, minRotation: 0 },
-                },
-              },
+              scales: isCircularChart
+                ? {}
+                : {
+                    y: {
+                      beginAtZero: true,
+                      grid: { color: "#dbeafe" },
+                      ticks: { color: "#475569" },
+                    },
+                    x: {
+                      grid: { display: false },
+                      ticks: { color: "#475569", maxRotation: 45, minRotation: 0 },
+                    },
+                  },
             },
           });
         });
@@ -746,6 +917,42 @@
         } catch (error) {
           renderChatError(runId);
         }
+      }
+
+      function setReportChatEnabled(enabled, message = "Report를 불러오는 중입니다.", type = "info") {
+        if (reportChatInput) {
+          reportChatInput.disabled = !enabled;
+          if (!enabled) {
+            reportChatInput.value = "";
+          }
+        }
+
+        if (reportChatButton) {
+          reportChatButton.disabled = !enabled;
+        }
+
+        if (!enabled) {
+          if (message) {
+            showReportChatMessage(message, type);
+          } else {
+            hideReportChatMessage();
+          }
+        } else {
+          hideReportChatMessage();
+        }
+      }
+
+      function resetReportChatPanel() {
+        const historyContainer = document.getElementById("reportChatHistory");
+        if (historyContainer) {
+          historyContainer.innerHTML = `
+            <p class="chat-empty-state px-2 py-6 text-center text-sm text-slate-500">
+              Report를 선택하면 질문할 수 있습니다.
+            </p>
+          `;
+        }
+
+        setReportChatEnabled(false, "");
       }
 
       async function sendReportChatMessage() {
@@ -806,7 +1013,7 @@
         if (!historyContainer) return;
 
         historyContainer.innerHTML = `
-          <div class="rounded-md border border-red-100 bg-white px-4 py-6 text-center text-sm text-red-600">
+          <div class="rounded-2xl border border-rose-100 bg-white px-4 py-8 text-center text-sm text-rose-600">
             채팅 내역을 불러오지 못했습니다.
           </div>
         `;
@@ -818,9 +1025,9 @@
 
         if (!messages.length) {
           historyContainer.innerHTML = `
-            <div class="rounded-md border border-dashed border-blue-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
-              이 report에 대해 질문해보세요.
-            </div>
+            <p class="chat-empty-state px-2 py-6 text-center text-sm text-slate-500">
+              이 Report에 대해 질문해보세요.
+            </p>
           `;
           return;
         }
@@ -833,7 +1040,7 @@
         const historyContainer = document.getElementById("reportChatHistory");
         if (!historyContainer) return;
 
-        const emptyState = historyContainer.querySelector(".border-dashed");
+        const emptyState = historyContainer.querySelector(".chat-empty-state");
         if (emptyState) {
           historyContainer.innerHTML = "";
         }
@@ -844,25 +1051,13 @@
 
       function renderChatMessage(message) {
         const isUser = message.role === "user";
-        const metadata = message.metadata || {};
-        const citedNodes = metadata.cited_nodes || [];
-        const confidence = metadata.confidence_score;
         const bubbleClass = isUser
-          ? "ml-auto border-blue-200 bg-blue-600 text-white"
-          : "mr-auto border-blue-100 bg-white text-slate-800";
-        const meta = !isUser && !message.loading
-          ? `
-            <div class="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-              ${confidence !== undefined ? `<span class="rounded-full bg-blue-50 px-2 py-1 text-blue-700">confidence ${escapeHtml(String(confidence))}</span>` : ""}
-              ${citedNodes.map((node) => `<span class="rounded-full bg-slate-100 px-2 py-1">${escapeHtml(node)}</span>`).join("")}
-            </div>
-          `
-          : "";
+          ? "ml-auto border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-200"
+          : "mr-auto border-slate-200 bg-white text-slate-800 shadow-sm";
 
         return `
-          <div class="max-w-[88%] rounded-md border px-3 py-2 text-sm leading-6 ${bubbleClass} ${message.loading ? "animate-pulse" : ""}">
+          <div class="max-w-[88%] rounded-2xl border px-3 py-2 text-sm leading-6 ${bubbleClass} ${message.loading ? "animate-pulse" : ""}">
             <div class="whitespace-pre-wrap">${escapeHtml(message.content || "")}</div>
-            ${meta}
           </div>
         `;
       }
@@ -876,16 +1071,24 @@
         target.classList.remove("hidden");
       }
 
+      function hideReportChatMessage() {
+        const target = document.getElementById("reportChatMessage");
+        if (!target) return;
+
+        target.textContent = "";
+        target.classList.add("hidden");
+      }
+
       function findNodeResult(nodeResults, nodeName) {
         return nodeResults.find((item) => item.node === nodeName)?.result || null;
       }
 
       function metricCard(label, value, suffix = "") {
         return `
-          <div class="rounded-md bg-white p-4">
-            <div class="text-xs font-semibold uppercase text-blue-600">${label}</div>
+          <div class="metric-surface p-4">
+            <div class="text-xs font-semibold text-slate-500">${label}</div>
             <div class="mt-2 flex items-end gap-1">
-              <span class="text-2xl font-bold text-blue-950">${escapeHtml(String(value))}</span>
+              <span class="text-3xl font-semibold tabular-nums tracking-tight text-slate-950">${escapeHtml(String(value))}</span>
               <span class="pb-1 text-xs font-semibold text-slate-500">${suffix}</span>
             </div>
           </div>
@@ -894,12 +1097,12 @@
 
       function renderFindingCard(title, items) {
         const content = items.length
-          ? `<ul class="mt-3 space-y-2">${items.map((item) => `<li class="rounded-md bg-blue-50 px-3 py-2 text-sm text-slate-800">${escapeHtml(item)}</li>`).join("")}</ul>`
-          : `<div class="mt-3 rounded-md bg-blue-50 px-3 py-2 text-sm text-slate-500">표시할 항목이 없습니다.</div>`;
+          ? `<ul class="mt-3 space-y-2">${items.map((item) => `<li class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-800">${escapeHtml(item)}</li>`).join("")}</ul>`
+          : `<div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-500">표시할 항목이 없습니다.</div>`;
 
         return `
-          <div class="rounded-md bg-white p-4">
-            <div class="text-xs font-semibold uppercase text-blue-600">${title}</div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-4">
+            <div class="text-xs font-semibold text-slate-500">${title}</div>
             ${content}
           </div>
         `;
@@ -913,15 +1116,15 @@
         }
 
         return `
-          <div class="rounded-md bg-white p-4">
-            <div class="text-xs font-semibold uppercase text-blue-600">${title}</div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-4">
+            <div class="text-xs font-semibold text-slate-500">${title}</div>
             <div class="mt-3 overflow-x-auto">
               <table class="min-w-full text-sm">
-                <tbody class="divide-y divide-blue-50">
+                <tbody class="divide-y divide-slate-100">
                   ${entries.map(([key, value]) => `
                     <tr>
-                      <td class="py-2 pr-4 font-medium text-slate-600">${escapeHtml(key)}</td>
-                      <td class="py-2 text-right font-semibold text-blue-950">${escapeHtml(String(value))}</td>
+                      <td class="py-2 pr-4 font-mono text-xs text-slate-500">${escapeHtml(key)}</td>
+                      <td class="py-2 text-right font-mono text-sm font-semibold text-slate-950">${escapeHtml(String(value))}</td>
                     </tr>
                   `).join("")}
                 </tbody>
@@ -940,6 +1143,18 @@
           .replaceAll("'", "&#039;");
       }
 
+      function formatDateTimeToSeconds(value) {
+        if (!value) return "-";
+
+        const text = String(value);
+        const match = text.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+        if (match) {
+          return `${match[1]} ${match[2]}`;
+        }
+
+        return text.split(".")[0];
+      }
+
       askButton.addEventListener("click", invokeGraph);
       refreshButton.addEventListener("click", fetchStatus);
       reportShortcutButton.addEventListener("click", () => {
@@ -949,6 +1164,7 @@
       runTabButton.addEventListener("click", () => switchTab("run"));
       reportTabButton.addEventListener("click", () => switchTab("report"));
       reportRefreshButton.addEventListener("click", () => loadReports(selectedReportRunId));
+      reportChatButton.addEventListener("click", sendReportChatMessage);
       loadDatabases().catch(() => showMessage("DB 목록을 불러오지 못했습니다.", "error"));
       loadReports();
     </script>

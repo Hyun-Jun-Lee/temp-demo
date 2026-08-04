@@ -47,6 +47,14 @@ class OSAnalysisResult(BaseModel):
     instance_scores: list[dict[str, float | int | str]] = Field(
         description="Per-instance report scores and key values. Include INST_ID, HOST_NAME, severity_score, cpu_util_pct, memory_util_pct, paging_rate_per_sec, and workload_share_pct.",
     )
+    resource_timeseries: dict[str, list[dict[str, float | str]]] = Field(
+        default_factory=dict,
+        description="Report chart-ready OS resource time series. Keys should include cpu_util_pct, memory_util_pct, and paging_rate_per_sec when available.",
+    )
+    bottleneck_distribution: dict[str, float] = Field(
+        default_factory=dict,
+        description="Report chart-ready distribution of bottleneck evidence such as CPU, Memory, Paging, PGA, and Workload Imbalance.",
+    )
     imbalance_score: int = Field(
         ge=0,
         le=100,
@@ -114,11 +122,19 @@ def os_node(state: MainState) -> dict:
         ]
     )
 
+    result = analysis.model_dump()
+    result["resource_timeseries"] = _build_resource_timeseries(
+        instance_os_analysis_results,
+    )
+    result["bottleneck_distribution"] = _build_bottleneck_distribution(
+        instance_os_analysis_results,
+    )
+
     return {
         "node_result": [
             {
                 "node": "os",
-                "result": analysis.model_dump(),
+                "result": result,
             }
         ],
     }
@@ -158,6 +174,14 @@ def fetch_instance_os_analysis_results(db_name: str, run_id: str | None = None) 
                     "MAX_CPU_UTIL_PCT": 48.5,
                     "SUSTAINED_CPU_PRESSURE": False,
                 },
+                "RESOURCE_TIMESERIES": [
+                    {"EVENT_TIME": "2026-07-08T09:35:00+09:00", "CPU_UTIL_PCT": 29.4, "MEMORY_UTIL_PCT": 55.8, "PAGING_RATE_PER_SEC": 0.0},
+                    {"EVENT_TIME": "2026-07-08T09:40:00+09:00", "CPU_UTIL_PCT": 32.1, "MEMORY_UTIL_PCT": 57.2, "PAGING_RATE_PER_SEC": 0.0},
+                    {"EVENT_TIME": "2026-07-08T09:45:00+09:00", "CPU_UTIL_PCT": 35.8, "MEMORY_UTIL_PCT": 58.0, "PAGING_RATE_PER_SEC": 0.0},
+                    {"EVENT_TIME": "2026-07-08T09:50:00+09:00", "CPU_UTIL_PCT": 37.0, "MEMORY_UTIL_PCT": 58.9, "PAGING_RATE_PER_SEC": 0.0},
+                    {"EVENT_TIME": "2026-07-08T09:55:00+09:00", "CPU_UTIL_PCT": 33.7, "MEMORY_UTIL_PCT": 58.5, "PAGING_RATE_PER_SEC": 0.0},
+                    {"EVENT_TIME": "2026-07-08T10:00:00+09:00", "CPU_UTIL_PCT": 34.2, "MEMORY_UTIL_PCT": 58.4, "PAGING_RATE_PER_SEC": 0.0},
+                ],
                 "MEMORY_FINDINGS": {
                     "AVG_MEMORY_UTIL_PCT": 58.4,
                     "SWAP_ACTIVITY": False,
@@ -221,6 +245,14 @@ def fetch_instance_os_analysis_results(db_name: str, run_id: str | None = None) 
                 "MAX_CPU_UTIL_PCT": 52.1,
                 "SUSTAINED_CPU_PRESSURE": False,
             },
+            "RESOURCE_TIMESERIES": [
+                {"EVENT_TIME": "2026-07-08T09:35:00+09:00", "CPU_UTIL_PCT": 37.6, "MEMORY_UTIL_PCT": 60.2, "PAGING_RATE_PER_SEC": 0.0},
+                {"EVENT_TIME": "2026-07-08T09:40:00+09:00", "CPU_UTIL_PCT": 39.1, "MEMORY_UTIL_PCT": 60.9, "PAGING_RATE_PER_SEC": 0.0},
+                {"EVENT_TIME": "2026-07-08T09:45:00+09:00", "CPU_UTIL_PCT": 40.3, "MEMORY_UTIL_PCT": 61.4, "PAGING_RATE_PER_SEC": 0.0},
+                {"EVENT_TIME": "2026-07-08T09:50:00+09:00", "CPU_UTIL_PCT": 38.8, "MEMORY_UTIL_PCT": 61.1, "PAGING_RATE_PER_SEC": 0.0},
+                {"EVENT_TIME": "2026-07-08T09:55:00+09:00", "CPU_UTIL_PCT": 37.9, "MEMORY_UTIL_PCT": 60.7, "PAGING_RATE_PER_SEC": 0.0},
+                {"EVENT_TIME": "2026-07-08T10:00:00+09:00", "CPU_UTIL_PCT": 38.4, "MEMORY_UTIL_PCT": 61.2, "PAGING_RATE_PER_SEC": 0.0},
+            ],
             "MEMORY_FINDINGS": {
                 "AVG_MEMORY_UTIL_PCT": 61.2,
                 "SWAP_ACTIVITY": False,
@@ -251,6 +283,14 @@ def fetch_instance_os_analysis_results(db_name: str, run_id: str | None = None) 
                 "MAX_CPU_UTIL_PCT": 91.4,
                 "SUSTAINED_CPU_PRESSURE": True,
             },
+            "RESOURCE_TIMESERIES": [
+                {"EVENT_TIME": "2026-07-08T09:35:00+09:00", "CPU_UTIL_PCT": 62.4, "MEMORY_UTIL_PCT": 76.8, "PAGING_RATE_PER_SEC": 2.1},
+                {"EVENT_TIME": "2026-07-08T09:40:00+09:00", "CPU_UTIL_PCT": 68.7, "MEMORY_UTIL_PCT": 79.4, "PAGING_RATE_PER_SEC": 4.8},
+                {"EVENT_TIME": "2026-07-08T09:45:00+09:00", "CPU_UTIL_PCT": 74.2, "MEMORY_UTIL_PCT": 82.1, "PAGING_RATE_PER_SEC": 8.4},
+                {"EVENT_TIME": "2026-07-08T09:50:00+09:00", "CPU_UTIL_PCT": 81.5, "MEMORY_UTIL_PCT": 84.5, "PAGING_RATE_PER_SEC": 11.2},
+                {"EVENT_TIME": "2026-07-08T09:55:00+09:00", "CPU_UTIL_PCT": 88.1, "MEMORY_UTIL_PCT": 86.1, "PAGING_RATE_PER_SEC": 13.4},
+                {"EVENT_TIME": "2026-07-08T10:00:00+09:00", "CPU_UTIL_PCT": 91.4, "MEMORY_UTIL_PCT": 84.7, "PAGING_RATE_PER_SEC": 12.6},
+            ],
             "MEMORY_FINDINGS": {
                 "AVG_MEMORY_UTIL_PCT": 84.7,
                 "SWAP_ACTIVITY": True,
@@ -275,3 +315,68 @@ def fetch_instance_os_analysis_results(db_name: str, run_id: str | None = None) 
 
 def _to_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def _build_resource_timeseries(
+    instance_os_analysis_results: list[dict],
+) -> dict[str, list[dict[str, float | str]]]:
+    """Build chart-ready cluster resource time series from instance demo rows."""
+    return {
+        "cpu_util_pct": _average_series_points(instance_os_analysis_results, "CPU_UTIL_PCT"),
+        "memory_util_pct": _average_series_points(instance_os_analysis_results, "MEMORY_UTIL_PCT"),
+        "paging_rate_per_sec": _average_series_points(instance_os_analysis_results, "PAGING_RATE_PER_SEC"),
+    }
+
+
+def _average_series_points(
+    instance_os_analysis_results: list[dict],
+    key: str,
+) -> list[dict[str, float | str]]:
+    grouped: dict[str, list[float]] = {}
+
+    for instance in instance_os_analysis_results:
+        for row in instance.get("RESOURCE_TIMESERIES") or []:
+            if row.get(key) is None:
+                continue
+
+            grouped.setdefault(str(row["EVENT_TIME"]), []).append(float(row[key]))
+
+    return [
+        {
+            "time": event_time[11:16],
+            "value": round(sum(values) / len(values), 2),
+        }
+        for event_time, values in sorted(grouped.items())
+    ]
+
+
+def _build_bottleneck_distribution(
+    instance_os_analysis_results: list[dict],
+) -> dict[str, float]:
+    distribution = {
+        "CPU": 0.0,
+        "Memory": 0.0,
+        "Paging": 0.0,
+        "PGA": 0.0,
+        "Workload Imbalance": 0.0,
+    }
+
+    for row in instance_os_analysis_results:
+        cpu = row.get("CPU_FINDINGS") or {}
+        memory = row.get("MEMORY_FINDINGS") or {}
+        pga = row.get("PGA_FINDINGS") or {}
+        imbalance = row.get("IMBALANCE_INDICATORS") or {}
+
+        distribution["CPU"] += 2 if cpu.get("SUSTAINED_CPU_PRESSURE") else 1
+        distribution["Memory"] += 2 if memory.get("AVG_MEMORY_UTIL_PCT", 0) >= 80 else 1
+        distribution["Paging"] += 2 if memory.get("SWAP_ACTIVITY") else 0
+        distribution["PGA"] += 2 if pga.get("PGA_SPILL_INDICATORS") else 1
+        distribution["Workload Imbalance"] += (
+            2 if imbalance.get("RESOURCE_SKEW") in {"MODERATE", "HIGH"} else 1
+        )
+
+    return {
+        label: value
+        for label, value in distribution.items()
+        if value > 0
+    }

@@ -10,7 +10,7 @@ from src.core.state import MainState
 from src.prompt.global_health_prompt import SYSTEM_PROMPT, USER_PROMPT
 
 
-TargetNode = Literal["memory", "os"]
+TargetNode = Literal["memory", "os", "tempspace", "log_write"]
 
 
 class GlobalHealthResult(BaseModel):
@@ -31,6 +31,16 @@ class GlobalHealthResult(BaseModel):
         ge=0,
         le=100,
         description="OS/server resource risk signal score. Higher means greater OS concern.",
+    )
+    tempspace_signal_score: int = Field(
+        ge=0,
+        le=100,
+        description="TEMP tablespace risk signal score. Higher means greater TEMP concern.",
+    )
+    log_write_signal_score: int = Field(
+        ge=0,
+        le=100,
+        description="Redo/log write risk signal score. Higher means greater log write concern.",
     )
     routing_confidence: int = Field(
         ge=0,
@@ -62,7 +72,9 @@ def global_health_node(state: MainState) -> dict:
             ),
         ]
     )
-    target_nodes = list(dict.fromkeys(classification.target_nodes))
+    llm_target_nodes = list(dict.fromkeys(classification.target_nodes))
+    signal_target_nodes = target_nodes_from_warning_signals(global_health_overview)
+    target_nodes = signal_target_nodes or llm_target_nodes
 
     return {
         "target_nodes": target_nodes,
@@ -71,9 +83,13 @@ def global_health_node(state: MainState) -> dict:
                 "node": "global_health",
                 "result": {
                     "target_nodes": target_nodes,
+                    "llm_target_nodes": llm_target_nodes,
+                    "signal_target_nodes": signal_target_nodes,
                     "overall_health_score": classification.overall_health_score,
                     "memory_signal_score": classification.memory_signal_score,
                     "os_signal_score": classification.os_signal_score,
+                    "tempspace_signal_score": classification.tempspace_signal_score,
+                    "log_write_signal_score": classification.log_write_signal_score,
                     "routing_confidence": classification.routing_confidence,
                     "detected_signals": classification.detected_signals,
                     "reason": classification.reason,
@@ -107,6 +123,8 @@ def fetch_global_health_overview(db_name: str, run_id: str | None = None) -> dic
     scenario = select_demo_scenario(db_name, run_id)
     memory_warning = scenario in {"memory_warning", "mixed_warning"}
     os_warning = scenario in {"os_warning", "mixed_warning"}
+    tempspace_warning = scenario in {"tempspace_warning", "mixed_warning"}
+    log_write_warning = scenario in {"log_write_warning", "mixed_warning"}
 
     return {
         "DB_NAME": db_name,
@@ -139,13 +157,56 @@ def fetch_global_health_overview(db_name: str, run_id: str | None = None) -> dic
             if os_warning
             else "os node is optional unless user asks for OS details",
         },
-        "SUMMARY": _build_overview_summary(memory_warning, os_warning),
+        "TEMPSPACE_OVERVIEW": {
+            "SIGNAL": "WARNING" if tempspace_warning else "NORMAL",
+            "TEMP_USED_PCT": 87.7 if tempspace_warning else 25.0,
+            "ACTIVE_TEMP_SESSIONS": 9 if tempspace_warning else 2,
+            "WORKAREA_SPILL_MB": 4096 if tempspace_warning else 58,
+            "ROUTING_HINT": "tempspace node should run"
+            if tempspace_warning
+            else "tempspace node is optional unless user asks for TEMP details",
+        },
+        "LOG_WRITE_OVERVIEW": {
+            "SIGNAL": "WARNING" if log_write_warning else "NORMAL",
+            "LOG_FILE_SYNC_AVG_MS": 31.2 if log_write_warning else 4.1,
+            "LOG_FILE_PARALLEL_WRITE_AVG_MS": 18.4 if log_write_warning else 2.2,
+            "REDO_MB_PER_SEC": 92.4 if log_write_warning else 18.7,
+            "LOG_SWITCH_COUNT_LAST_HOUR": 18 if log_write_warning else 4,
+            "ROUTING_HINT": "log_write node should run"
+            if log_write_warning
+            else "log_write node is optional unless user asks for redo or commit details",
+        },
+        "SUMMARY": _build_overview_summary(
+            memory_warning,
+            os_warning,
+            tempspace_warning,
+            log_write_warning,
+        ),
     }
 
 
-def _build_overview_summary(memory_warning: bool, os_warning: bool) -> str:
-    if memory_warning and os_warning:
-        return "DB는 open 상태이나 메모리와 OS 양쪽에서 경고 신호가 확인되어 세부 점검이 필요합니다."
+def _build_overview_summary(
+    memory_warning: bool,
+    os_warning: bool,
+    tempspace_warning: bool,
+    log_write_warning: bool,
+) -> str:
+    warnings = []
+
+    if memory_warning:
+        warnings.append("메모리")
+
+    if os_warning:
+        warnings.append("OS")
+
+    if tempspace_warning:
+        warnings.append("TEMP")
+
+    if log_write_warning:
+        warnings.append("redo/log write")
+
+    if len(warnings) > 1:
+        return f"DB는 open 상태이나 {', '.join(warnings)} 영역에서 경고 신호가 확인되어 세부 점검이 필요합니다."
 
     if memory_warning:
         return "DB는 open 상태이나 Shared Pool/parse/cache 관련 메모리 경고 신호가 확인되어 메모리 점검이 필요합니다."
@@ -153,7 +214,29 @@ def _build_overview_summary(memory_warning: bool, os_warning: bool) -> str:
     if os_warning:
         return "DB는 open 상태이며 메모리 지표는 안정적입니다. 다만 특정 RAC 노드에서 OS 리소스 경고 신호가 있어 OS 점검이 필요합니다."
 
-    return "DB는 open 상태이며 메모리와 OS 전반 지표가 안정적입니다."
+    if tempspace_warning:
+        return "DB는 open 상태이나 TEMP 사용률과 workarea spill 증가가 확인되어 TEMP 점검이 필요합니다."
+
+    if log_write_warning:
+        return "DB는 open 상태이나 commit latency와 redo write 지연 신호가 확인되어 log write 점검이 필요합니다."
+
+    return "DB는 open 상태이며 메모리, OS, TEMP, redo/log write 전반 지표가 안정적입니다."
+
+
+def target_nodes_from_warning_signals(global_health_overview: dict) -> list[str]:
+    """Return deterministic routing targets from overview WARNING signals."""
+    signal_mapping = [
+        ("MEMORY_OVERVIEW", "memory"),
+        ("OS_OVERVIEW", "os"),
+        ("TEMPSPACE_OVERVIEW", "tempspace"),
+        ("LOG_WRITE_OVERVIEW", "log_write"),
+    ]
+
+    return [
+        node_name
+        for overview_key, node_name in signal_mapping
+        if (global_health_overview.get(overview_key) or {}).get("SIGNAL") == "WARNING"
+    ]
 
 
 def _to_json(value: object) -> str:
