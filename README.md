@@ -235,20 +235,27 @@ GET /reports/{run_id}
 
 ## Demo 시나리오
 
-현재 실제 DB 조회는 연결되어 있지 않고, 더미 데이터 함수가 시나리오별 샘플 데이터를 반환합니다.
+현재 실제 DB 조회는 연결되어 있지 않고, 더미 데이터 함수가 DB 이름별 고정 시나리오 샘플 데이터를 반환합니다.
 
-기본값은 실행마다 랜덤입니다.
+DB별 기본 시나리오:
+
+- `TESTDB`: memory, os, tempspace, log_write 전부 경고
+- `APPDB`: 정상
+- `PAYDB`: memory, os 경고
+- `DWDB`: tempspace, log_write 경고
 
 가능한 시나리오:
 
 - `normal`
 - `memory_warning`
 - `os_warning`
+- `memory_os_warning`
 - `tempspace_warning`
 - `log_write_warning`
+- `tempspace_log_write_warning`
 - `mixed_warning`
 
-특정 시나리오를 고정하려면 아래 환경변수를 설정합니다.
+DB별 기본값 대신 특정 시나리오를 강제로 고정하려면 아래 환경변수를 설정합니다.
 
 ```bash
 export DA_OPS_DEMO_SCENARIO=os_warning

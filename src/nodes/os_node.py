@@ -4,7 +4,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from src.core.demo_scenarios import select_demo_scenario
+from src.core.demo_scenarios import scenario_has_warning, select_demo_scenario
 from src.core.llm_client import get_llm_client
 from src.core.state import MainState
 from src.prompt.os_prompt import SYSTEM_PROMPT, USER_PROMPT
@@ -160,7 +160,7 @@ def fetch_instance_os_analysis_results(db_name: str, run_id: str | None = None) 
 
     This demo function is a placeholder for the real DB or monitoring repository query.
     """
-    if select_demo_scenario(db_name, run_id) not in {"os_warning", "mixed_warning"}:
+    if not scenario_has_warning(select_demo_scenario(db_name, run_id), "os"):
         return [
             {
                 "DB_NAME": db_name,

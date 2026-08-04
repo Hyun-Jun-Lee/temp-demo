@@ -139,10 +139,16 @@ def list_databases() -> list[dict[str, str]]:
             "status": "OPEN",
         },
         {
-            "db_name": "LOGDB",
-            "service_name": "logdb_svc",
-            "role": "STANDBY",
-            "status": "READ ONLY",
+            "db_name": "APPDB",
+            "service_name": "appdb_svc",
+            "role": "PRIMARY",
+            "status": "OPEN",
+        },
+        {
+            "db_name": "DWDB",
+            "service_name": "dwdb_svc",
+            "role": "PRIMARY",
+            "status": "OPEN",
         },
     ]
 

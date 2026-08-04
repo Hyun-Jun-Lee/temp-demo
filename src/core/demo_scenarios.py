@@ -1,23 +1,28 @@
-import random
-
-
 SCENARIOS = (
     "normal",
     "memory_warning",
     "os_warning",
+    "memory_os_warning",
     "tempspace_warning",
     "log_write_warning",
+    "tempspace_log_write_warning",
     "mixed_warning",
 )
-_SCENARIO_CACHE: dict[str, str] = {}
+
+DB_SCENARIO_MAP = {
+    "TESTDB": "mixed_warning",
+    "APPDB": "normal",
+    "PAYDB": "memory_os_warning",
+    "DWDB": "tempspace_log_write_warning",
+}
 
 
 def select_demo_scenario(db_name: str, run_id: str | None = None) -> str:
     """Select a demo scenario for placeholder data.
 
-    Set DA_OPS_DEMO_SCENARIO to one of normal, memory_warning, os_warning,
-    tempspace_warning, log_write_warning, or mixed_warning to force a scenario.
-    Otherwise, a scenario is selected randomly for each data fetch.
+    Set DA_OPS_DEMO_SCENARIO to one of SCENARIOS to force a scenario.
+    Without an environment override, known demo DB names map to fixed scenarios.
+    Unknown DB names default to normal.
     """
     import os
 
@@ -26,9 +31,19 @@ def select_demo_scenario(db_name: str, run_id: str | None = None) -> str:
     if forced_scenario in SCENARIOS:
         return forced_scenario
 
-    cache_key = run_id or db_name
+    return DB_SCENARIO_MAP.get(db_name.upper(), "normal")
 
-    if cache_key not in _SCENARIO_CACHE:
-        _SCENARIO_CACHE[cache_key] = random.choice(SCENARIOS)
 
-    return _SCENARIO_CACHE[cache_key]
+def scenario_has_warning(scenario: str, domain: str) -> bool:
+    """Return whether a scenario includes a warning for the given domain."""
+    warning_domains = {
+        "memory_warning": {"memory"},
+        "os_warning": {"os"},
+        "memory_os_warning": {"memory", "os"},
+        "tempspace_warning": {"tempspace"},
+        "log_write_warning": {"log_write"},
+        "tempspace_log_write_warning": {"tempspace", "log_write"},
+        "mixed_warning": {"memory", "os", "tempspace", "log_write"},
+    }
+
+    return domain in warning_domains.get(scenario, set())

@@ -4,7 +4,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from src.core.demo_scenarios import select_demo_scenario
+from src.core.demo_scenarios import scenario_has_warning, select_demo_scenario
 from src.core.llm_client import get_llm_client
 from src.core.state import MainState
 from src.prompt.global_health_prompt import SYSTEM_PROMPT, USER_PROMPT
@@ -121,10 +121,10 @@ def fetch_global_health_overview(db_name: str, run_id: str | None = None) -> dic
     This demo function returns a warning OS scenario with normal memory signals.
     """
     scenario = select_demo_scenario(db_name, run_id)
-    memory_warning = scenario in {"memory_warning", "mixed_warning"}
-    os_warning = scenario in {"os_warning", "mixed_warning"}
-    tempspace_warning = scenario in {"tempspace_warning", "mixed_warning"}
-    log_write_warning = scenario in {"log_write_warning", "mixed_warning"}
+    memory_warning = scenario_has_warning(scenario, "memory")
+    os_warning = scenario_has_warning(scenario, "os")
+    tempspace_warning = scenario_has_warning(scenario, "tempspace")
+    log_write_warning = scenario_has_warning(scenario, "log_write")
 
     return {
         "DB_NAME": db_name,

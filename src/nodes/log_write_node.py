@@ -4,7 +4,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from src.core.demo_scenarios import select_demo_scenario
+from src.core.demo_scenarios import scenario_has_warning, select_demo_scenario
 from src.core.llm_client import get_llm_client
 from src.core.state import MainState
 from src.prompt.log_write_prompt import SYSTEM_PROMPT, USER_PROMPT
@@ -132,7 +132,7 @@ def fetch_redo_commit_overview(db_name: str, run_id: str | None = None) -> dict:
     - REDO_WRITE_MB_PER_SEC
     - LOG_SWITCH_COUNT_LAST_HOUR
     """
-    warning = select_demo_scenario(db_name, run_id) in {"log_write_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "log_write")
 
     if warning:
         return {
@@ -168,7 +168,7 @@ def fetch_log_wait_events(db_name: str, run_id: str | None = None) -> list[dict]
     - AVG_WAIT_MS
     - P95_WAIT_MS
     """
-    warning = select_demo_scenario(db_name, run_id) in {"log_write_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "log_write")
 
     if warning:
         return [
@@ -216,7 +216,7 @@ def fetch_redo_write_timeseries(db_name: str, run_id: str | None = None) -> list
     - LOG_FILE_SYNC_AVG_MS
     - LOG_FILE_PARALLEL_WRITE_AVG_MS
     """
-    warning = select_demo_scenario(db_name, run_id) in {"log_write_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "log_write")
     rows = [
         ("09:35", 36.4, 580.0, 8.4, 4.2),
         ("09:40", 44.8, 710.0, 11.6, 6.1),
@@ -256,7 +256,7 @@ def fetch_log_switch_history(db_name: str, run_id: str | None = None) -> list[di
     - REDO_MB
     - SWITCH_INTERVAL_MINUTES
     """
-    warning = select_demo_scenario(db_name, run_id) in {"log_write_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "log_write")
     intervals = [4, 3, 4, 3, 3, 4] if warning else [18, 16, 21, 19]
 
     return [

@@ -4,7 +4,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from src.core.demo_scenarios import select_demo_scenario
+from src.core.demo_scenarios import scenario_has_warning, select_demo_scenario
 from src.core.llm_client import get_llm_client
 from src.core.state import MainState
 from src.prompt.tempspace_prompt import SYSTEM_PROMPT, USER_PROMPT
@@ -127,7 +127,7 @@ def fetch_temp_tablespace_overview(db_name: str, run_id: str | None = None) -> d
     - MAX_SIZE_MB
     - ACTIVE_TEMP_SESSIONS
     """
-    warning = select_demo_scenario(db_name, run_id) in {"tempspace_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "tempspace")
 
     if warning:
         return {
@@ -167,7 +167,7 @@ def fetch_top_temp_sessions(db_name: str, run_id: str | None = None) -> list[dic
     - TEMP_USED_MB
     - WORKAREA_OPERATION such as SORT, HASH JOIN, GROUP BY, or CREATE INDEX
     """
-    warning = select_demo_scenario(db_name, run_id) in {"tempspace_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "tempspace")
 
     if warning:
         return [
@@ -214,7 +214,7 @@ def fetch_temp_usage_timeseries(db_name: str, run_id: str | None = None) -> list
     - WORKAREA_SPILL_MB
     - ACTIVE_TEMP_SESSIONS
     """
-    warning = select_demo_scenario(db_name, run_id) in {"tempspace_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "tempspace")
     rows = [
         ("09:35", 31.0, 10158, 120, 2),
         ("09:40", 35.2, 11534, 180, 3),
@@ -255,7 +255,7 @@ def fetch_workarea_spill_summary(db_name: str, run_id: str | None = None) -> dic
     - TOP_OPERATION
     - PGA_TARGET_ADVICE or memory sizing context if available
     """
-    warning = select_demo_scenario(db_name, run_id) in {"tempspace_warning", "mixed_warning"}
+    warning = scenario_has_warning(select_demo_scenario(db_name, run_id), "tempspace")
 
     if warning:
         return {

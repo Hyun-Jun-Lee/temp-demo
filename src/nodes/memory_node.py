@@ -4,7 +4,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from src.core.demo_scenarios import select_demo_scenario
+from src.core.demo_scenarios import scenario_has_warning, select_demo_scenario
 from src.core.llm_client import get_llm_client
 from src.core.state import MainState
 from src.prompt.memory_prompt import SYSTEM_PROMPT, USER_PROMPT
@@ -150,7 +150,7 @@ def fetch_sysmetric_data(db_name: str, run_id: str | None = None) -> list[dict]:
       2114 Shared Pool Free %
     - Optional baseline fields if available for trend/anomaly comparison
     """
-    if select_demo_scenario(db_name, run_id) in {"memory_warning", "mixed_warning"}:
+    if scenario_has_warning(select_demo_scenario(db_name, run_id), "memory"):
         return [
             {
                 "EVENT_TIME": "2026-07-08T10:00:00+09:00",
@@ -294,7 +294,7 @@ def fetch_shared_pool_free_size_trend(db_name: str, run_id: str | None = None) -
     - NAME, expected value such as "shared pool Free Size"
     - MEGA_BYTES, representing absolute Shared Pool free size in MB
     """
-    if select_demo_scenario(db_name, run_id) in {"memory_warning", "mixed_warning"}:
+    if scenario_has_warning(select_demo_scenario(db_name, run_id), "memory"):
         return [
             {
                 "DB_NAME": db_name,
@@ -417,7 +417,7 @@ def fetch_shared_pool_reserved_area_trend(db_name: str, run_id: str | None = Non
     - LAST_MISS_SIZE
     - REQUEST_FAILURES
     """
-    if select_demo_scenario(db_name, run_id) in {"memory_warning", "mixed_warning"}:
+    if scenario_has_warning(select_demo_scenario(db_name, run_id), "memory"):
         return [
             {
                 "DB_NAME": db_name,

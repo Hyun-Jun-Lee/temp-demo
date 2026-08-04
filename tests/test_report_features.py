@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 _TEMP_DIR = tempfile.TemporaryDirectory()
 os.environ["DA_OPS_DB_PATH"] = str(Path(_TEMP_DIR.name) / "test.sqlite3")
 
+from src.core.demo_scenarios import select_demo_scenario  # noqa: E402
 from src.core.report_charts import build_report_charts  # noqa: E402
 from src.core.run_repository import (  # noqa: E402
     get_report_chat_messages,
@@ -170,8 +171,10 @@ class ReportFeatureTest(unittest.TestCase):
         cases = {
             "memory_warning": ["memory"],
             "os_warning": ["os"],
+            "memory_os_warning": ["memory", "os"],
             "tempspace_warning": ["tempspace"],
             "log_write_warning": ["log_write"],
+            "tempspace_log_write_warning": ["tempspace", "log_write"],
             "mixed_warning": ["memory", "os", "tempspace", "log_write"],
         }
         original_scenario = os.environ.get("DA_OPS_DEMO_SCENARIO")
@@ -190,6 +193,23 @@ class ReportFeatureTest(unittest.TestCase):
             if original_scenario is None:
                 os.environ.pop("DA_OPS_DEMO_SCENARIO", None)
             else:
+                os.environ["DA_OPS_DEMO_SCENARIO"] = original_scenario
+
+    def test_demo_db_names_map_to_fixed_scenarios(self) -> None:
+        original_scenario = os.environ.get("DA_OPS_DEMO_SCENARIO")
+        os.environ.pop("DA_OPS_DEMO_SCENARIO", None)
+
+        try:
+            self.assertEqual(select_demo_scenario("TESTDB", "run-test"), "mixed_warning")
+            self.assertEqual(select_demo_scenario("APPDB", "run-app"), "normal")
+            self.assertEqual(select_demo_scenario("PAYDB", "run-pay"), "memory_os_warning")
+            self.assertEqual(
+                select_demo_scenario("DWDB", "run-dw"),
+                "tempspace_log_write_warning",
+            )
+            self.assertEqual(select_demo_scenario("UNKNOWNDB", "run-unknown"), "normal")
+        finally:
+            if original_scenario is not None:
                 os.environ["DA_OPS_DEMO_SCENARIO"] = original_scenario
 
     def test_report_chart_and_chat_api(self) -> None:
